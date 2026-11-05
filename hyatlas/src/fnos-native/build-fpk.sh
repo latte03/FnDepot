@@ -8,9 +8,13 @@
 #     故 dashboard 有改动必须重编后重新打包装入 SHA_BIN，只改 manifest 不算交付）
 #   - 模型三件套（~355MB，超 GitHub 100MB 限制不入库）：按 MODEL_SRC → /tmp/b2-models
 #     → 从 REF_FPK 内层 app.tgz 提取的顺序解析；sha256 断言防漂移。
-#     REF_FPK 原指 4.2.5-1，后改指 4.3.3-1，两者均已从 download 目录消失（兜底路径断裂）；
-#     现改指现存的 4.5.0-2 打包产物（242,218,811B），其内层模型三件套 sha 与
-#     SHA_ONNX/SHA_ORT/SHA_TOK 断言逐件相同（打 4.6.0-1 时实测），不引入漂移。
+#     历史沿革：REF_FPK 原指 4.2.5-1，后改指 4.3.3-1，两者均已从 download 目录消失；
+#     再改指 4.5.0-2 产物（/vol2/1000/workspace/hy450-sync/out/，作者机器路径）——
+#     该目录在本机已不存在，兜底路径再次断裂。现改为：REF_FPK 默认留空（= 显式声明
+#     「本机无兜底 fpk」），模型一律走 MODEL_SRC；本机现役模型在
+#     /vol1/@appcenter/hyatlas/models，三件套 sha 与下方 SHA_ONNX/SHA_ORT/SHA_TOK
+#     逐件相符（2026-11 实测）。缺失时脚本直接 FATAL 并点名 MODEL_SRC，不再报错到
+#     一个不存在的 fpk 路径上。
 #
 # 用法: bash build-fpk.sh [输出路径]
 # ⚠ OUT 默认值是 /vol02/1000-1-13b246aa/… = fuse.rclone WebDAV 挂载（见 mount），
@@ -29,12 +33,25 @@
 #   换个人构建 sha 就变（实测 agan uid1000/gid1001 → 243,464,853B；钉死后 905/899 →
 #   243,464,854B = 官方 sha256 4ee0a695…）。需要别的身份时用 FPK_UID / FPK_GID /
 #   FPK_UNAME / FPK_GNAME 覆盖，改这四个值会直接改变产物 sha256。
+#
+# ── 复现判据（5.0.0-1 冻结基线，2026-11 实测）──────────────────────────────
+#   未修改树（git 6ed0ae0）+ 二进制用 golang:1.27.1-bookworm 重编（= bin/ 的 bb3376ba…）
+#   + MODEL_SRC=/vol1/@appcenter/hyatlas/models + 外层身份 905/899 Harness/Harness：
+#     产物 = 243,464,854 B
+#     sha256 = 4ee0a69595b1f621e842d5aacc4f61680f558c62515b230219fba1a02f744835
+#     = 官方 5.0.0-1 原件，cmp 逐字节相同；连打两次 sha 相同（确定性）。
+#   工具链必须带 -bookworm 后缀：golang:1.27 已浮动到 go1.27.3/trixie，golang:1.27.1 的
+#   默认变体也是 trixie(gcc 14)，两者分别产出 16,898,208 / 16,873,448 B，只有
+#   golang:1.27.1-bookworm 给出 16,873,936 B。判别式：二进制 .comment 段
+#   `GCC: (Debian 12.2.0-14+deb12u1) 12.2.0`。
+#   判据用法：打 5.0.0-N 时，与 5.0.0-1 的差异应**只来自本轮代码/控制层改动**；若大小、
+#   成员清单或元数据出现计划外偏移，先查本节前提（工具链/模型 sha/外层身份）是否被破坏。
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="${1:-/vol2/1000/download/hyatlas-5.0.0-1-x86.fpk}"
 VER="5.0.0-1"   # 本包版本，manifest 校验与身份闸提示共用（上游版本 + fork 修订号）
-REF_FPK="/vol2/1000/workspace/hy450-sync/out/hyatlas-4.5.0-2-x86.fpk"   # 242,218,811B 实测存在；其内层模型三件套 sha 与 SHA_ONNX/SHA_ORT/SHA_TOK 逐件相同
+REF_FPK="${REF_FPK:-}"   # 本机无兜底 fpk（作者机器的 /vol2/1000/workspace/hy450-sync/ 已不存在）→ 默认留空，模型走 MODEL_SRC；需要时显式传 REF_FPK=...
 
 # 4.9.0-1 是**上游同步版**（v4.7.3→v4.9.0，Go 源码与前端 embed 均有改动），本轮**重编**，
 # 不允许复用旧二进制：REUSE_BIN 默认置 0（要复用必须显式 REUSE_BIN=1 且那是打包层修订）。
@@ -110,7 +127,7 @@ if MODEL_DIR="$(resolve_models)"; then
   cp "$MODEL_DIR/libonnxruntime.so" "$MODEL_DIR/model_int8.onnx" "$MODEL_DIR/tokenizer.json" "$APPROOT/models/"
 else
   echo "models not found on disk, extracting from $REF_FPK (inner app.tgz)"
-  [ -f "$REF_FPK" ] || { echo "FATAL: 模型既不在磁盘也不在现有 fpk: $REF_FPK" >&2; exit 1; }
+  [ -f "${REF_FPK:-}" ] || { echo "FATAL: 模型既不在 MODEL_SRC(/tmp/b2-models) 也不在 REF_FPK（当前 REF_FPK=${REF_FPK:-<未设置>}）。本机请显式传 MODEL_SRC=/vol1/@appcenter/hyatlas/models" >&2; exit 1; }
   tar -xf "$REF_FPK" -C "$STAGING" app.tgz
   mkdir -p "$STAGING/mx" "$APPROOT/models"
   tar -xzf "$STAGING/app.tgz" -C "$STAGING/mx" ./models
