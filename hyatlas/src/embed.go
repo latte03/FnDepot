@@ -219,12 +219,15 @@ func (e *OpenAIEmbedder) Dim() int {
 		n, err := e.probeDim()
 		if err != nil {
 			e.dim, e.dimSrc = fallbackEmbedDim, "fallback: probe failed, "+embedDimsEnv+" unset"
-			// ERROR, not Printf: this is a degradation, not a note. On a store whose
-			// documents are not 384d it means every layer of the startup rebuild
-			// fails its zero-vector query, so the operator has to see it.
+			// ERROR, not Printf: this is a degradation, not a note, and the operator is
+			// the only one who can fix it. Say what it costs, so the line is actionable:
+			// on a store whose documents are not 384d, every layer of this start's index
+			// rebuild fails its zero-vector query and falls back to one real API call
+			// each, and /api/v1/status then reports a dimension the store does not index.
 			log.Printf("ERROR hyatlas: embed dimension probe of %s failed (%v); assuming %d — "+
-				"set %s (e.g. %s=1024) to name the real length, or the startup index rebuild "+
-				"will compare vectors of different lengths",
+				"set %s (e.g. %s=1024) to name the real length. Until then this start's index "+
+				"rebuild degrades to the per-layer fallback (one extra API call per layer) and "+
+				"/api/v1/status reports the wrong embed_dims",
 				e.BaseURL+"/embeddings", err, fallbackEmbedDim, embedDimsEnv, embedDimsEnv)
 			return
 		}
