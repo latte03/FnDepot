@@ -23,6 +23,12 @@
 #   - fnpack build 校验步骤省略（fnpack 重压 app.tgz 会改字节）
 #   - manifest checksum 占位符替换发生在 tar 组装之后，对产物无影响，此处保留
 #     占位符原件直拼
+#
+# ⚠ 外层 tar 身份已**显式钉死**为 905/899 Harness/Harness（= 5.0.0-1 出货件实测值）。
+#   原先取 st_uid/st_gid + pwd/grp 反查，等于把「跑脚本的人」写进产物身份：同样的内容
+#   换个人构建 sha 就变（实测 agan uid1000/gid1001 → 243,464,853B；钉死后 905/899 →
+#   243,464,854B = 官方 sha256 4ee0a695…）。需要别的身份时用 FPK_UID / FPK_GID /
+#   FPK_UNAME / FPK_GNAME 覆盖，改这四个值会直接改变产物 sha256。
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -199,7 +205,16 @@ OUTER_PINS = {
     'wizard/install':         {'mode': 0o644, 'mtime': 1788777602},
     'wizard/uninstall':       {'mode': 0o644, 'mtime': 1788777602},
 }
-import pwd, grp
+# 外层 tar 身份显式钉死：905/899 Harness/Harness = 5.0.0-1 出货件实测值
+# （官方原件 243,464,854B / sha256 4ee0a69595b1f621e842d5aacc4f61680f558c62515b230219fba1a02f744835
+#   在「二进制 go1.27.1-bookworm 重编 = bb3376ba + 模型三件套 sha 逐件相符」前提下可逐字节复现）。
+# 原实现是 st_uid/st_gid + pwd/grp 反查 ⇒ 构建用户成为产物身份的一部分：同一份内容
+# 换个人跑（uid 1000/1001 agan）就得到 243,464,853B，与内容无关却让复现失真。
+# 需要别的身份时用 FPK_UID / FPK_GID / FPK_UNAME / FPK_GNAME 覆盖；改这四个值会直接改变产物 sha256。
+OUTER_UID   = int(os.environ.get('FPK_UID', 905))
+OUTER_GID   = int(os.environ.get('FPK_GID', 899))
+OUTER_UNAME = os.environ.get('FPK_UNAME', 'Harness')
+OUTER_GNAME = os.environ.get('FPK_GNAME', 'Harness')
 
 class BareDirInfo(tarfile.TarInfo):
     # 原打包脚本同款：目录条目名不带尾斜杠
@@ -213,12 +228,7 @@ def ti_for(path, name, pins):
     st = os.lstat(path)
     ti = BareDirInfo(name)
     ti.size = st.st_size; ti.mtime = pins['mtime']; ti.mode = pins['mode']
-    try: ti.uid = st.st_uid; ti.gid = st.st_gid
-    except Exception: pass
-    try: ti.uname = pwd.getpwuid(st.st_uid).pw_name
-    except KeyError: ti.uname = ''
-    try: ti.gname = grp.getgrgid(st.st_gid).gr_name
-    except KeyError: ti.gname = ''
+    ti.uid, ti.gid, ti.uname, ti.gname = OUTER_UID, OUTER_GID, OUTER_UNAME, OUTER_GNAME
     if stat.S_ISDIR(st.st_mode): ti.type = tarfile.DIRTYPE; ti.size = 0
     elif stat.S_ISLNK(st.st_mode): ti.type = tarfile.SYMTYPE; ti.linkname = os.readlink(path)
     else: ti.type = tarfile.REGTYPE
