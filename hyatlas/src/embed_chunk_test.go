@@ -271,19 +271,48 @@ func TestChunkedEmbedderStoresLongTokenDenseText(t *testing.T) {
 	}
 }
 
-// The budget is finite: a constant plus one per piece, capped at the piece cap.
+// The budget is finite but per piece: enough halvings for every piece to reach the
+// floor, capped at the piece cap.
 func TestSplitBudgetIsBoundedAndScales(t *testing.T) {
-	if got := splitBudget(1); got != embedSplitBudget+1 {
-		t.Errorf("splitBudget(1) = %d, want %d", got, embedSplitBudget+1)
+	// chunkChars 400 → 400/64 → 3 halvings per piece at most.
+	e := NewChunkedEmbedder(NewLocalEmbedder(384), 400)
+	if got := e.splitBudget(1); got != embedSplitBudget {
+		t.Errorf("splitBudget(1) = %d, want the %d single-piece floor", got, embedSplitBudget)
 	}
-	if got := splitBudget(5); got != embedSplitBudget+5 {
-		t.Errorf("splitBudget(5) = %d, want one halving per piece plus the constant", got)
+	if got := e.splitBudget(4); got != 12 {
+		t.Errorf("splitBudget(4) = %d, want 4 pieces × 3 halvings", got)
 	}
-	if got := splitBudget(embedChunkMax * 10); got != embedChunkMax {
+	if got := e.splitBudget(embedChunkMax * 10); got != embedChunkMax {
 		t.Errorf("splitBudget must be capped at %d, got %d", embedChunkMax, got)
 	}
-	if got := splitBudget(0); got != embedSplitBudget+1 {
-		t.Errorf("splitBudget(0) = %d, want the single-piece budget", got)
+	if got := e.splitBudget(0); got != embedSplitBudget {
+		t.Errorf("splitBudget(0) = %d, want the single-piece floor", got)
+	}
+	// A chunk budget below the floor must not give a zero or negative depth.
+	tiny := NewChunkedEmbedder(NewLocalEmbedder(384), 4)
+	if got := tiny.splitBudget(3); got != embedSplitBudget {
+		t.Errorf("a 4-rune chunk budget gave %d halvings, want the %d floor", got, embedSplitBudget)
+	}
+}
+
+// The strictest measured tier: every piece needs two halvings (400 → 200 → 100 against a
+// 150-rune limit). Four such pieces need eight halvings, which a flat budget of 3 — or
+// "3 + pieces" = 7 — could not pay.
+func TestChunkedEmbedderStoresTextWhenEveryPieceNeedsTwoHalvings(t *testing.T) {
+	inner := &lengthLimitedEmbedder{limit: 150, dim: 6, inner: additiveEmbedder{dim: 6}}
+	e := NewChunkedEmbedder(inner, 400)
+	text := strings.Repeat("这是一段很密集的长记忆内容。", 100) // 1500 runes → 4 pieces
+	if n := utf8.RuneCountInString(text); n <= 1200 || n > 1600 {
+		t.Fatalf("test text is %d runes, want 1201..1600 so it cuts into 4 pieces", n)
+	}
+	if got := len(splitEmbedChunks(text, 400)); got != 4 {
+		t.Fatalf("test text cuts into %d pieces, want 4", got)
+	}
+	if _, err := e.Embed(context.Background(), text); err != nil {
+		t.Fatalf("four pieces needing two halvings each must still be stored, got: %v", err)
+	}
+	if m := inner.maxAccepted(); m > 150 {
+		t.Errorf("the model accepted a %d-rune text, want at most its 150", m)
 	}
 }
 

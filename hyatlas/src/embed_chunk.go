@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -54,28 +55,39 @@ const (
 	// embedChunkMinRunes is the size below which a rejected piece is not split again:
 	// a smaller request cannot be the fix for a rejection at this size.
 	embedChunkMinRunes = 64
-	// embedSplitBudget is the constant part of one Embed call's halving budget; the
-	// call gets one more halving per piece it cuts the text into (see splitBudget).
-	// The budget is shared by the whole call on purpose: a per-piece budget multiplies
-	// (each half may split again), and a 400 is not always about length — an empty or
-	// missing "input" answers the same 400 as an over-long one, and that must not turn
-	// into an ever-shrinking retry storm. When the budget is gone the call fails with
-	// the original rejection.
+	// embedSplitBudget is the floor of one Embed call's halving budget; the real budget
+	// is per piece (see splitBudget). It is shared by the whole call on purpose: a
+	// per-piece budget multiplies (each half may split again), and a 400 is not always
+	// about length — an empty or missing "input" answers the same 400 as an over-long
+	// one, and that must not turn into an ever-shrinking retry storm. When the budget is
+	// gone the call fails with the original rejection.
 	embedSplitBudget = 3
 )
 
-// splitBudget is the halving budget of one Embed call: a constant plus one per piece,
-// capped at the piece cap. The upper bound is therefore embedChunkMax plus a small
-// constant, so the work per call is finite whatever the endpoint answers — but a long
-// token-dense text, the input this decorator exists for, is not starved: a text cut into
-// four pieces whose four pieces all need halving must still be stored.
-func splitBudget(pieces int) int {
+// splitBudget is the halving budget of one Embed call: enough for every piece to be
+// reduced all the way from the chunk budget down to the split floor, capped at the piece
+// cap, and never below the single-piece constant.
+//
+// One piece needs at most ceil(log2(chunkChars/minRunes)) halvings (400/64 → 3), so the
+// whole call needs at most pieces × that. The work per call is therefore finite whatever
+// the endpoint answers (a piece costs at most 1+2+4 requests along one descent), and yet
+// a long token-dense text — the input this decorator exists for — is not starved by the
+// pieces before it. A flat constant starved exactly that case: measured with a stub whose
+// limit forced two halvings per piece, four pieces needed ~8 halvings and died at 3.
+func (e *ChunkedEmbedder) splitBudget(pieces int) int {
 	if pieces < 1 {
 		pieces = 1
 	}
-	n := embedSplitBudget + pieces
+	depth := 1
+	if e.chunkChars > embedChunkMinRunes {
+		depth = int(math.Ceil(math.Log2(float64(e.chunkChars) / float64(embedChunkMinRunes))))
+	}
+	n := pieces * depth
 	if n > embedChunkMax {
 		n = embedChunkMax
+	}
+	if n < embedSplitBudget {
+		n = embedSplitBudget
 	}
 	return n
 }
@@ -144,7 +156,7 @@ func (c *embedCall) spend() bool {
 func (e *ChunkedEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
 	total := utf8.RuneCountInString(text)
 	if total <= e.chunkChars {
-		c := &embedCall{total: total, left: splitBudget(1)}
+		c := &embedCall{total: total, left: e.splitBudget(1)}
 		v, err := e.inner.Embed(ctx, text)
 		if err == nil {
 			return v, nil
@@ -169,7 +181,7 @@ func (e *ChunkedEmbedder) Embed(ctx context.Context, text string) ([]float32, er
 	}
 	// The budget scales with the piece count (see splitBudget): every piece may need
 	// one halving without starving the pieces after it.
-	c := &embedCall{total: total, left: splitBudget(len(pieces))}
+	c := &embedCall{total: total, left: e.splitBudget(len(pieces))}
 	vecs := make([][]float32, 0, len(pieces))
 	for _, p := range pieces {
 		v, err := e.embedPiece(ctx, p, c)
