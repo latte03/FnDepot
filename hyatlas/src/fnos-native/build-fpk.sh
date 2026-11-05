@@ -49,8 +49,8 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-OUT="${1:-/vol2/1000/download/hyatlas-5.0.0-2-x86.fpk}"
-VER="5.0.0-2"   # 本包版本，manifest 校验与身份闸提示共用（上游版本 + fork 修订号）
+OUT="${1:-/vol2/1000/download/hyatlas-5.0.0-3-x86.fpk}"
+VER="5.0.0-3"   # 本包版本，manifest 校验与身份闸提示共用（上游版本 + fork 修订号）
 REF_FPK="${REF_FPK:-}"   # 本机无兜底 fpk（作者机器的 /vol2/1000/workspace/hy450-sync/ 已不存在）→ 默认留空，模型走 MODEL_SRC；需要时显式传 REF_FPK=...
 
 # 4.9.0-1 是**上游同步版**（v4.7.3→v4.9.0，Go 源码与前端 embed 均有改动），本轮**重编**，
@@ -59,7 +59,7 @@ REF_FPK="${REF_FPK:-}"   # 本机无兜底 fpk（作者机器的 /vol2/1000/work
 # 两份不同挂载路径的产物因 .git 有无不一致（4.9.1-1 出货件 buildinfo 无 vcs 键，与本闸对齐）。
 # SHA_BIN 取自出包前置门禁的权威值：/vol2 与 /tmp 两条不同挂载路径各编一次，
 # 逐字节一致（go1.27.1-bookworm，CGO_ENABLED=1，-trimpath，-buildvcs=false，GOAMD64=v1）。
-SHA_BIN="a821992ab01567cc2a2569cfff5306ee1b36db2b2cdd94f8d03c92ecdcb65453"   # 实测：冻结树 d86bff9 + golang:1.27.1-bookworm；16,926,992B（= 5.0.0-1 的 16,873,936B + F1/F2/F3 代码）
+SHA_BIN="594cb2b8bab97da8031b5bcc1934f2c5f6cebbd0f44a40c1044fff477dc5dc1e"   # 实测：冻结树 ae164a5 + golang:1.27.1-bookworm；25,143,592B（面板静态资源本地化：Chart.js + 5 份 woff2 经 go:embed 进二进制，比 5.0.0-2 的 16,926,992B 多 8,216,600B）
 REUSE_BIN="${REUSE_BIN:-0}"   # 1 = 本轮为打包层修订，允许复用 bin/ 现有二进制（非重编）；重编发布时置 0
 SHA_ONNX="8a3f371a7e535e25d3d5a0ff0c0501a605ef0b62577800d2bf4b1fc76d6cbcf1"
 SHA_ORT="99458e9d185dfa1a9b5f6510790ede3bedc25dea378adb904ce292b517eeaecf"
