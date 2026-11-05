@@ -2046,6 +2046,13 @@ func main() {
 	// ~1500-rune memory reached the model whole, came back HTTP 400 (code 20015) and
 	// surfaced as a 500 from /api/v1/add: the memory was lost.
 	chunkChars := resolveEmbedChunkChars()
+	// The extractor accepts extractMaxChars; the splitter must be able to carry that much,
+	// or a text the write path takes can never be stored. Say so here rather than letting
+	// the write answer 500 later (the mismatch appears only when HYATLAS_EMBED_CHUNK_CHARS
+	// is lowered, which is exactly when nobody is looking for it).
+	if w := embedChunkCapWarning(chunkChars); w != "" {
+		log.Print(w)
+	}
 	embedder = NewChunkedEmbedder(embedder, chunkChars)
 	// Fork (fnos): one startup line naming the dimension the store will size its
 	// vectors with, where that number came from, and the chunk budget — so a mismatch

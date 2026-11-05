@@ -49,9 +49,18 @@ const (
 	// defaultEmbedChunkChars is a safe first attempt for the live model, which
 	// rejected a 511-rune text: half of it leaves room for a token-dense text.
 	defaultEmbedChunkChars = 400
-	// embedChunkMax caps the pieces one text may be cut into, so a pathologically
-	// long text fails with a clear error instead of a request storm.
-	embedChunkMax = 64
+	// embedChunkMax caps the pieces one text may be cut into, so a pathologically long
+	// text fails with a clear error instead of a request storm.
+	//
+	// 80 is not arbitrary: extractMaxChars (server.go) is the longest memory the
+	// extractor accepts, and embedChunkMax × chunkChars must cover it — 30000/400 = 75
+	// pieces, plus headroom. At the default 400 that is 32,000 runes. A smaller
+	// HYATLAS_EMBED_CHUNK_CHARS shrinks that cover, which is exactly the mismatch
+	// embedChunkCapWarning reports at startup, so the two cannot disagree silently.
+	//
+	// Worst-case work per Embed stays finite: 80 pieces × at most 1+2+4 requests along
+	// one descent ≈ 560 requests, and the halving budget caps it further.
+	embedChunkMax = 80
 	// embedChunkMinRunes is the size below which a rejected piece is not split again:
 	// a smaller request cannot be the fix for a rejection at this size.
 	embedChunkMinRunes = 64
@@ -90,6 +99,28 @@ func (e *ChunkedEmbedder) splitBudget(pieces int) int {
 		n = embedSplitBudget
 	}
 	return n
+}
+
+// embedChunkCapWarning reports a chunk configuration that cannot hold the longest memory
+// the extractor accepts: embedChunkMax × chunkChars must cover extractMaxChars, or a text
+// the extractor is happy to take can never be stored (it fails with the "over the
+// N-chunk cap" error). Empty means the two agree.
+//
+// extractMaxChars is a byte cap and chunkChars is a rune budget, so comparing them
+// directly is conservative for non-ASCII text: a rune is at least one byte, so no text
+// that fits the byte cap needs more runes than the cap.
+func embedChunkCapWarning(chunkChars int) string {
+	if chunkChars <= 0 {
+		return ""
+	}
+	need := (extractMaxChars + chunkChars - 1) / chunkChars
+	if need <= embedChunkMax {
+		return ""
+	}
+	minChars := (extractMaxChars + embedChunkMax - 1) / embedChunkMax
+	return fmt.Sprintf("WARNING hyatlas: %s=%d needs %d chunks for a %d-character memory (the extraction limit), "+
+		"but the chunk cap is %d: a memory that long cannot be stored. Raise %s to at least %d, or shorten the memory",
+		embedChunkCharsEnv, chunkChars, need, extractMaxChars, embedChunkMax, embedChunkCharsEnv, minChars)
 }
 
 // resolveEmbedChunkChars reads HYATLAS_EMBED_CHUNK_CHARS, defaulting to

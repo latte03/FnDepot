@@ -223,7 +223,7 @@ func TestChunkedEmbedderGivesUpAfterTheWholeCallBudget(t *testing.T) {
 	// One request per piece tried plus the halvings the budget allows: the descent is
 	// a path, not a tree, so the count stays tiny instead of shrinking to 1 rune.
 	if len(rec.texts) > 10 {
-		t.Errorf("the call made %d requests, want a bounded number (budget = 3 + pieces)", len(rec.texts))
+		t.Errorf("the call made %d requests, want a bounded number (budget = pieces × depth)", len(rec.texts))
 	}
 	msg := err.Error()
 	if !strings.Contains(msg, "The parameter is invalid") {
@@ -313,6 +313,49 @@ func TestChunkedEmbedderStoresTextWhenEveryPieceNeedsTwoHalvings(t *testing.T) {
 	}
 	if m := inner.maxAccepted(); m > 150 {
 		t.Errorf("the model accepted a %d-rune text, want at most its 150", m)
+	}
+}
+
+// The extractor accepts 30,000 characters, so the splitter must be able to carry that
+// much: otherwise a memory the write path takes can never be stored. Measured before the
+// cap was raised: 25,600 runes passed (63 pieces), 30,000 failed (76 pieces) with
+// "needs 76 chunks of at most 400 runes …, over the 64-chunk cap".
+func TestChunkedEmbedderStoresTheExtractionLimit(t *testing.T) {
+	inner := &lengthLimitedEmbedder{limit: 510, dim: 6, inner: additiveEmbedder{dim: 6}}
+	e := NewChunkedEmbedder(inner, defaultEmbedChunkChars)
+	unit := "这是用于验证嵌入分片行为的中文长文本。" // 19 runes
+	text := strings.Repeat(unit, extractMaxChars/utf8.RuneCountInString(unit)+1)
+	n := utf8.RuneCountInString(text)
+	if n < extractMaxChars {
+		t.Fatalf("test text is %d runes, want at least the %d extraction limit", n, extractMaxChars)
+	}
+	pieces := len(splitEmbedChunks(text, defaultEmbedChunkChars))
+	if pieces > embedChunkMax {
+		t.Fatalf("%d runes cut into %d pieces, over the %d cap the extractor's limit needs", n, pieces, embedChunkMax)
+	}
+	if _, err := e.Embed(context.Background(), text); err != nil {
+		t.Fatalf("a %d-rune memory (the extraction limit) must be stored, got: %v", n, err)
+	}
+	if m := inner.maxAccepted(); m > defaultEmbedChunkChars {
+		t.Errorf("the model accepted a %d-rune text, want at most the %d budget", m, defaultEmbedChunkChars)
+	}
+}
+
+// The startup check: a chunk budget that cannot cover the extraction limit must say so,
+// because the failure otherwise appears only as a 500 on one long write.
+func TestEmbedChunkCapWarning(t *testing.T) {
+	if w := embedChunkCapWarning(defaultEmbedChunkChars); w != "" {
+		t.Errorf("the default budget must cover extractMaxChars, got %q", w)
+	}
+	w := embedChunkCapWarning(200)
+	if w == "" {
+		t.Fatal("a 200-rune budget needs 150 pieces for extractMaxChars and must warn")
+	}
+	if !strings.Contains(w, embedChunkCharsEnv) || !strings.Contains(w, "375") {
+		t.Errorf("the warning must name the knob and the minimum that works (375), got %q", w)
+	}
+	if w := embedChunkCapWarning(0); w != "" {
+		t.Errorf("a zero budget is the caller's default, not a warning: %q", w)
 	}
 }
 
