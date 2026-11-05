@@ -285,6 +285,14 @@ print('fpk assembled')
 PYEOF
 
 echo "=== 4/4 verify (structural) ==="
+# ⚠ 本段整体关掉 pipefail：校验全是 `tar -xOf "$OUT" <成员> | grep -q PATTERN` 形态。
+#   grep -q 命中即退出并关闭读端 → tar 继续写第二块时吃 SIGPIPE(141) → 在 pipefail 下
+#   管道状态取 141，`if !` 就把「命中」误判成「缺失」。cmd/main(16003B) 与
+#   install_callback(11036B) 都超过 tar 的 10240B 记录长，所以只有它们会踩：
+#   同一份字节连跑 12 次实测 9 次 FAIL / 3 次 PASS（内容用 grep -c 复核恒为 2）。
+#   关掉 pipefail 后管道取末段状态，语义不变：tar 失败 → 无输出 → grep 不命中 → 仍然 FAIL。
+#   注意：本段在 fpk 写完之后，改这里**不会**改变产物字节。
+set +o pipefail
 GOT_SHA=$(sha256sum "$OUT" | cut -d' ' -f1)
 GOT_SIZE=$(stat -c '%s' "$OUT")
 FAIL=0
@@ -350,5 +358,6 @@ if [ "$FAIL" != "0" ]; then
   echo "STRUCTURE CHECK FAILED" >&2
   exit 1
 fi
+set -o pipefail
 echo "PASS: structure ok (manifest $VER, share two-hop resolve + uninstall wizard present, app payload complete incl env.example)"
 echo "$OUT  $((GOT_SIZE/1024/1024))MB  sha256=$GOT_SHA"
