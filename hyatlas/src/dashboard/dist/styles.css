@@ -20,7 +20,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   background: var(--bg);
   color: var(--text);
   display: flex;
@@ -30,10 +30,10 @@ body {
 }
 
 /* Typography */
-.font-serif { font-family: 'Playfair Display', serif; }
-.font-mono { font-family: 'JetBrains Mono', monospace; }
+.font-serif { font-family: 'Xiangcui Kesong', 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', serif; }
+.font-mono { font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace; }
 
-h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
+h1, h2, h3 { font-family: 'Xiangcui Kesong', 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', serif; font-weight: 600; }
 
 /* Sidebar */
 .sidebar {
@@ -203,7 +203,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 
 .scope-bar-label {
   color: var(--accent);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 10px;
   letter-spacing: 1.5px;
   white-space: nowrap;
@@ -258,7 +258,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 
 .page-label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 11px;
   color: var(--muted);
   letter-spacing: 2px;
@@ -325,7 +325,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 
 .stat-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 32px;
   font-weight: 500;
   color: var(--text);
@@ -353,7 +353,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   border-radius: 4px;
   font-size: 11px;
   font-weight: 500;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
 }
 
 .badge-layer {
@@ -362,7 +362,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 
 .badge-importance {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 10px;
   padding: 2px 8px;
   border-radius: 4px;
@@ -418,7 +418,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   border-radius: 6px;
   color: var(--text);
   font-size: 13px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
 }
 
 .input:focus {
@@ -503,7 +503,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 
 .timeline-time {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 11px;
   color: var(--muted);
   margin-bottom: 4px;
@@ -560,7 +560,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 .text-sm { font-size: 12px; }
 .text-xs { font-size: 11px; }
 .text-muted { color: var(--muted); }
-.font-mono { font-family: 'JetBrains Mono', monospace; }
+.font-mono { font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace; }
 
 /* Layer Colors */
 .layer-l0_basic_info { background: #4a6fa5; }
@@ -601,7 +601,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 /* Graph Container */
 .graph-wrapper{position:relative;height:680px;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 32%),radial-gradient(circle at 52% 38%,rgba(212,197,163,.045),transparent 42%),#080808;border:1px solid rgba(255,255,255,.075);border-radius:12px;overflow:hidden;box-shadow:none}
 .graph-container{position:absolute;inset:0;width:100%;height:100%;background:transparent;overflow:hidden}
-.obs-layer-rail{position:absolute;left:18px;top:22px;display:flex;flex-direction:column;gap:7px;pointer-events:auto}.obs-layer-pill{border:1px solid transparent;background:rgba(5,5,5,.18);color:#e8e8e8;border-radius:999px;padding:8px 12px;font:10px 'JetBrains Mono',monospace;letter-spacing:.075em;line-height:1;text-transform:uppercase;cursor:pointer;min-width:218px;text-align:left;transition:background .15s,border-color .15s,color .15s,opacity .15s}.obs-layer-pill:hover{background:rgba(255,255,255,.025);color:#fff;border-color:transparent}.obs-layer-pill.active{border-color:transparent;color:#fff;background:rgba(255,255,255,.03);box-shadow:none}.obs-layer-pill.empty{opacity:.86}.obs-layer-pill.empty .obs-layer-name{color:#eeeeee}.obs-count-chip{float:right;color:var(--layer-color);font-variant-numeric:tabular-nums;font-weight:600}.obs-layer-id{display:inline-block;color:var(--layer-color);font-weight:700;margin-right:7px;min-width:18px}.obs-layer-name{color:#fff;font-weight:500}.obs-note{position:absolute;right:18px;bottom:18px;color:#6f6f6f;font:10px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase}.obs-tooltip{position:absolute;z-index:30;pointer-events:none;max-width:300px;padding:11px 13px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(13,13,13,.94);box-shadow:0 18px 44px rgba(0,0,0,.5);font:11px 'Inter',sans-serif;color:#ddd;display:none}.obs-tooltip-title{font-weight:500;margin-bottom:6px;line-height:1.35;color:#f1f1f1}.obs-tooltip-meta{font:10px 'JetBrains Mono',monospace;color:#8d8d8d;text-transform:uppercase;letter-spacing:.06em;line-height:1.55}
+.obs-layer-rail{position:absolute;left:18px;top:22px;display:flex;flex-direction:column;gap:7px;pointer-events:auto}.obs-layer-pill{border:1px solid transparent;background:rgba(5,5,5,.18);color:#e8e8e8;border-radius:999px;padding:8px 12px;font:10px 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;letter-spacing:.075em;line-height:1;text-transform:uppercase;cursor:pointer;min-width:218px;text-align:left;transition:background .15s,border-color .15s,color .15s,opacity .15s}.obs-layer-pill:hover{background:rgba(255,255,255,.025);color:#fff;border-color:transparent}.obs-layer-pill.active{border-color:transparent;color:#fff;background:rgba(255,255,255,.03);box-shadow:none}.obs-layer-pill.empty{opacity:.86}.obs-layer-pill.empty .obs-layer-name{color:#eeeeee}.obs-count-chip{float:right;color:var(--layer-color);font-variant-numeric:tabular-nums;font-weight:600}.obs-layer-id{display:inline-block;color:var(--layer-color);font-weight:700;margin-right:7px;min-width:18px}.obs-layer-name{color:#fff;font-weight:500}.obs-note{position:absolute;right:18px;bottom:18px;color:#6f6f6f;font:10px 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;letter-spacing:.08em;text-transform:uppercase}.obs-tooltip{position:absolute;z-index:30;pointer-events:none;max-width:300px;padding:11px 13px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(13,13,13,.94);box-shadow:0 18px 44px rgba(0,0,0,.5);font:11px 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;color:#ddd;display:none}.obs-tooltip-title{font-weight:500;margin-bottom:6px;line-height:1.35;color:#f1f1f1}.obs-tooltip-meta{font:10px 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;color:#8d8d8d;text-transform:uppercase;letter-spacing:.06em;line-height:1.55}
 
 .graph-overlay {
   position: absolute;
@@ -628,7 +628,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   gap: 6px;
   font-size: 10px;
   color: #666;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -716,7 +716,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 
 .kv-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 13px;
   color: var(--text);
 }
@@ -768,7 +768,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 .composition-caption .caption-text strong { color: var(--text); }
 .composition-caption code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 9px;
   background: rgba(255,255,255,0.04);
   padding: 1px 4px;
@@ -791,7 +791,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   display: flex;
   align-items: center;
   gap: 7px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   letter-spacing: 0.04em;
   line-height: 1.4;
 }
@@ -877,7 +877,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
-  font: 9px 'JetBrains Mono', monospace;
+  font: 9px 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 6px 8px 7px;
@@ -1008,7 +1008,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 .layer-count {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
 }
 
 /* Graph Controls */
@@ -1104,7 +1104,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 
 .summary-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 24px;
   font-weight: 500;
 }
@@ -1153,7 +1153,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 .l5-entity .l5-mentions {
   margin-left: auto;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 11px;
   color: var(--muted, #888);
 }
@@ -1165,7 +1165,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   padding-left: 4px;
 }
 .l5-type-badge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 9px;
   font-weight: 600;
   padding: 2px 6px;
@@ -1183,7 +1183,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   border: 1px solid var(--border, #2a2a3a);
   border-radius: 12px;
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-weight: 600;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -1215,7 +1215,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   color: var(--text, #e0e0e0);
 }
 .l5-relation .l5-rel-type {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 9px;
   padding: 1px 5px;
   background: #3a2a5a;
@@ -1225,11 +1225,11 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 }
 .l5-relation .l5-rel-arrow {
   color: var(--muted, #888);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
 }
 .l5-relation .l5-rel-conf {
   margin-left: auto;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 10px;
   color: var(--muted, #888);
 }
@@ -1239,7 +1239,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
   border: 1px solid var(--border, #2a2a3a);
   padding: 6px 10px;
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   border-radius: 3px;
   outline: none;
   transition: border-color 0.15s;
@@ -1251,8 +1251,8 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; }
 /* ── Initial loading screen ── */
 .boot-screen{position:fixed;inset:0;z-index:99999;background:#060606;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;transition:opacity .5s ease}
 .boot-screen.gone{opacity:0;pointer-events:none}
-.boot-logo{font:700 28px/1 'JetBrains Mono',monospace;letter-spacing:.15em;color:#d4c5a3}
-.boot-sub{font:11px/1 'JetBrains Mono',monospace;color:#555;letter-spacing:.1em;text-transform:uppercase}
+.boot-logo{font:700 28px/1 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;letter-spacing:.15em;color:#d4c5a3}
+.boot-sub{font:11px/1 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;color:#555;letter-spacing:.1em;text-transform:uppercase}
 .boot-bar{width:200px;height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden;position:relative}
 .boot-bar-fill{position:absolute;inset:0;background:linear-gradient(90deg,transparent,#d4c5a3,transparent);width:40%;animation:bootSlide 1s linear infinite}
 @keyframes bootSlide{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
@@ -1320,7 +1320,7 @@ body.memory-detail-active .content-area  { max-width: 100%; }
 
 /* Section title used inside each panel. */
 .memory-detail-section-title {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
   font-size: 11px;
   letter-spacing: 2px;
   color: var(--muted);
@@ -1336,7 +1336,7 @@ body.memory-detail-active .content-area  { max-width: 100%; }
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace;
 }
 
 /* 4-factor scoring breakdown. */

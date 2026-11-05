@@ -1,0 +1,82 @@
+HyAtlas dashboard - bundled webfont licenses
+============================================
+
+These woff2 files are shipped inside the HyAtlas binary (Go `//go:embed
+dashboard/dist`) so the panel renders with its intended typography on an
+isolated LAN with no route to fonts.googleapis.com / fonts.gstatic.com.
+
+They are subsets (pyftsubset, GB2312 + latin, woff2 flavour) of fonts the user
+already owns locally. Subsetting changes glyph coverage only: outlines,
+copyright notices, license records and the fonts' internal names are preserved
+verbatim (pyftsubset was run with --name-IDs='*').
+
+Every file here is redistributable with this software:
+
+  - Xiangcui Kesong  : SIL Open Font License 1.1
+  - MiSans           : MiSans font license (Xiaomi) - free for personal and
+                       commercial use, copyright notice must be retained
+  - Maple Mono NF CN : SIL Open Font License 1.1 (Reserved Font Name "Maple Mono")
+
+License text for OFL 1.1: https://openfontlicense.org/open-font-license-official-text/
+SPDX identifier: OFL-1.1
+
+
+1) Xiangcui Kesong  (香萃刻宋)
+------------------------------
+Files:     xiangcui-kesong.woff2
+           (weight 400, style normal, subset: GB2312 + latin)
+License:   SIL Open Font License 1.1
+           (the distribution archive ships SIL_Open_Font_License_1.1.txt and
+            states the font is free for personal and commercial use)
+Copyright: as embedded in the source font (name table ID 13 carries the OFL
+           notice; the upstream archive carries no separate copyright line)
+Upstream:  https://www.maoken.com/  (猫啃网 distribution: 香萃刻宋 1.501)
+           https://www.maoken.com/freefonts  (free-for-commercial-use index)
+License:   OFL 1.1 text shipped with the font archive
+
+
+2) MiSans
+---------
+Files:     misans-regular.woff2   (weight 400)
+           misans-medium.woff2    (weight 500)
+           (subset: GB2312 + latin)
+License:   MiSans font license, Xiaomi (MiSans 字体知识产权许可协议) -
+           released for free personal and commercial use; the copyright
+           notice must be kept when the font is redistributed or embedded
+Copyright: Copyright (c) 2020-2021 Beijing Xiaomi Mobile Software Co.,Ltd.
+           All Rights Reserved.   (name table ID 0)
+Upstream:  https://hyperos.mi.com/font/   (official MiSans release page)
+           Font design: 汉仪字库 (https://www.hanyi.com.cn/, name table ID 11)
+Note:      MiSans is NOT under the OFL. Its license permits bundling inside an
+           application provided the font is not sold on its own and the
+           copyright notice above travels with it - both conditions hold here.
+           If this panel is ever redistributed outside the user's own NAS,
+           re-check the license terms at the page above first.
+
+
+3) Maple Mono NF CN
+-------------------
+Files:     maplemono-nf-cn-regular.woff2   (weight 400)
+           maplemono-nf-cn-medium.woff2    (weight 500)
+           (subset: GB2312 + latin, OpenType layout features kept via
+            --layout-features='*', so calt/liga ligatures still work)
+License:   SIL Open Font License 1.1, with Reserved Font Name "Maple Mono"
+Copyright: Copyright (c) 2024, subframe7536 (https://github.com/subframe7536).
+           (name table ID 0)
+Upstream:  https://github.com/subframe7536/maple-font
+           https://github.com/subframe7536/maple-font/blob/main/LICENSE.txt
+Note:      The OFL reserved-name clause applies to modified versions being
+           redistributed as a font product. Here the subset keeps the original
+           internal names and is only bundled inside this application, so the
+           Reserved Font Name is not being claimed for a new font.
+
+
+Coverage and fallback
+---------------------
+Charset: ASCII (U+0020-U+007E) + Latin-1 supplement + General Punctuation
+         (U+2000-U+206F) + CJK punctuation (U+3000-U+303F) + Fullwidth forms
+         (U+FF00-U+FFEF) + every GB2312 character (6763 hanzi, generated
+         programmatically from the codec, not hand-written ranges).
+Rare characters outside GB2312 are intentionally not bundled: they fall back
+per-character to the system CJK fonts named later in the CSS stacks in
+../styles.css and ../starmap.css.

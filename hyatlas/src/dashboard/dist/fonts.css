@@ -1,0 +1,64 @@
+/* HyAtlas dashboard - self-hosted webfonts (offline bundle)
+ *
+ * Why: the panel used to pull three families from fonts.googleapis.com and
+ * Chart.js from cdn.jsdelivr.net. On an isolated LAN neither is reachable, so
+ * the whole design fell back to the browser's default serif/sans/monospace.
+ * These faces are shipped inside the Go binary (//go:embed dashboard/dist).
+ *
+ * Files: fonts/*.woff2, subset with pyftsubset (GB2312 + latin, woff2).
+ *        See fonts/LICENSES.txt for per-family license, copyright and source.
+ *
+ * Family names below are the names read out of each font's `name` table
+ * (fontTools TTFont(path)['name'].getDebugName(...)), not guesses:
+ *   Xiangcui Kesong  -> name ID 16 "Xiangcui Kesong"
+ *   MiSans           -> name ID 1  "MiSans"
+ *   Maple Mono NF CN -> name ID 16 "Maple Mono NF CN"
+ *
+ * No `unicode-range` is declared on purpose: each file covers its full subset,
+ * and any character missing from the subset falls back per-character to the
+ * next family in the CSS font stack (the CJK system chain in styles.css).
+ * `font-display: swap` keeps first paint immediate.
+ */
+
+/* ---- 标题 / display serif ---- */
+@font-face {
+  font-family: 'Xiangcui Kesong';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/xiangcui-kesong.woff2') format('woff2');
+}
+
+/* ---- 正文 / UI sans ---- */
+@font-face {
+  font-family: 'MiSans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/misans-regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'MiSans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/misans-medium.woff2') format('woff2');
+}
+
+/* ---- 等宽 / IDs, timestamps, numbers (has CJK, keeps columns aligned) ---- */
+@font-face {
+  font-family: 'Maple Mono NF CN';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/maplemono-nf-cn-regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Maple Mono NF CN';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/maplemono-nf-cn-medium.woff2') format('woff2');
+}

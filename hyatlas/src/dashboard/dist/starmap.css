@@ -9,7 +9,7 @@
   --sm-fg: #e8e8ea;
   --sm-muted: rgba(232, 232, 234, 0.55);
   color: var(--sm-fg);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
 }
 
 /* layout */
@@ -68,7 +68,7 @@
 .hy .text-\[0\.58rem\] { font-size: 0.58rem; }
 .hy .text-\[0\.7rem\] { font-size: 0.7rem; }
 .hy .text-xs { font-size: 0.75rem; }
-.hy .font-mono { font-family: 'JetBrains Mono', monospace; }
+.hy .font-mono { font-family: 'Maple Mono NF CN', ui-monospace, 'SF Mono', Consolas, 'Cascadia Mono', monospace; }
 .hy .tabular-nums { font-variant-numeric: tabular-nums; }
 .hy .leading-relaxed { line-height: 1.625; }
 .hy .break-all { word-break: break-all; }
