@@ -2034,10 +2034,20 @@ func main() {
 		embedder = NewOpenAIEmbedder(embedBase, embedKey, embedModel)
 		embedDims = embedder.Dim()
 	}
+	// Fork (fnos): one decorator covers every embedding call site — writes, clause
+	// rows, L5 search documents, entity pages, queries — because they all go through
+	// the store's embedder. A text over the rune budget is cut at a boundary, embedded
+	// piece by piece and mean-pooled back into one normalized vector. Without it a
+	// ~1500-rune memory reached the model whole, came back HTTP 400 (code 20015) and
+	// surfaced as a 500 from /api/v1/add: the memory was lost.
+	chunkChars := resolveEmbedChunkChars()
+	embedder = NewChunkedEmbedder(embedder, chunkChars)
 	// Fork (fnos): one startup line naming the dimension the store will size its
-	// vectors with and where that number came from, so a mismatch is visible here
-	// instead of only as a "vectors must have the same length" WARNING later.
-	log.Printf("embed: dims=%d from %s", embedDims, embedDimSource(embedder))
+	// vectors with, where that number came from, and the chunk budget — so a mismatch
+	// is visible here instead of only as a "vectors must have the same length"
+	// WARNING (or as a 400-then-500 on a long write) later.
+	log.Printf("embed: dims=%d from %s; texts over %d runes are split and mean-pooled",
+		embedDims, embedDimSource(embedder), chunkChars)
 	graphPath := rt.GraphPath
 	store, err := NewMemoryStore(ctx, dir, embedder, graphPath, embedDims)
 	if err != nil {
