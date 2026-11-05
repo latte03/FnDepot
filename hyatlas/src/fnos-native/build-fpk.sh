@@ -59,7 +59,7 @@ REF_FPK="${REF_FPK:-}"   # 本机无兜底 fpk（作者机器的 /vol2/1000/work
 # 两份不同挂载路径的产物因 .git 有无不一致（4.9.1-1 出货件 buildinfo 无 vcs 键，与本闸对齐）。
 # SHA_BIN 取自出包前置门禁的权威值：/vol2 与 /tmp 两条不同挂载路径各编一次，
 # 逐字节一致（go1.27.1-bookworm，CGO_ENABLED=1，-trimpath，-buildvcs=false，GOAMD64=v1）。
-SHA_BIN="b7ee5cf537b7d699856ce92c42fe4bf614a930e6ecae822edbb086f195714ea6"   # 实测：冻结树 dc61ab7 + golang:1.27.1-bookworm；16,926,752B（= 5.0.0-1 的 16,873,936B + F1/F2/F3 代码）
+SHA_BIN="a821992ab01567cc2a2569cfff5306ee1b36db2b2cdd94f8d03c92ecdcb65453"   # 实测：冻结树 d86bff9 + golang:1.27.1-bookworm；16,926,992B（= 5.0.0-1 的 16,873,936B + F1/F2/F3 代码）
 REUSE_BIN="${REUSE_BIN:-0}"   # 1 = 本轮为打包层修订，允许复用 bin/ 现有二进制（非重编）；重编发布时置 0
 SHA_ONNX="8a3f371a7e535e25d3d5a0ff0c0501a605ef0b62577800d2bf4b1fc76d6cbcf1"
 SHA_ORT="99458e9d185dfa1a9b5f6510790ede3bedc25dea378adb904ce292b517eeaecf"
