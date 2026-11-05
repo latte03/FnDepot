@@ -49,8 +49,8 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-OUT="${1:-/vol2/1000/download/hyatlas-5.0.0-1-x86.fpk}"
-VER="5.0.0-1"   # 本包版本，manifest 校验与身份闸提示共用（上游版本 + fork 修订号）
+OUT="${1:-/vol2/1000/download/hyatlas-5.0.0-2-x86.fpk}"
+VER="5.0.0-2"   # 本包版本，manifest 校验与身份闸提示共用（上游版本 + fork 修订号）
 REF_FPK="${REF_FPK:-}"   # 本机无兜底 fpk（作者机器的 /vol2/1000/workspace/hy450-sync/ 已不存在）→ 默认留空，模型走 MODEL_SRC；需要时显式传 REF_FPK=...
 
 # 4.9.0-1 是**上游同步版**（v4.7.3→v4.9.0，Go 源码与前端 embed 均有改动），本轮**重编**，
