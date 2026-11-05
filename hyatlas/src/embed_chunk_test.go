@@ -341,15 +341,60 @@ func TestChunkedEmbedderStoresTheExtractionLimit(t *testing.T) {
 	}
 }
 
-// The startup check: a chunk budget that cannot cover the extraction limit must say so,
-// because the failure otherwise appears only as a 500 on one long write.
+// The worst case the cap has to carry: splitEmbedChunks only cuts in the second half of
+// its window, so a text whose break points sit just past every half-window yields pieces
+// of about chunkChars/2 — up to twice the ideal piece count. 200-rune lines with a newline
+// each do exactly that: 30,150 runes → 150 pieces of 201. An 80-piece cap failed here
+// (measured on the real endpoint: "needs 149~151 chunks … over the cap"), while the startup
+// check, computed from the ideal 75 pieces, said there was nothing wrong.
+func TestChunkedEmbedderStoresDenseBreakTextAtTheExtractionLimit(t *testing.T) {
+	inner := &lengthLimitedEmbedder{limit: 510, dim: 6, inner: additiveEmbedder{dim: 6}}
+	e := NewChunkedEmbedder(inner, defaultEmbedChunkChars)
+	text := strings.Repeat(strings.Repeat("x", 200)+"\n", 150) // 30,150 runes
+	n := utf8.RuneCountInString(text)
+	if n < extractMaxChars {
+		t.Fatalf("test text is %d runes, want at least the %d extraction limit", n, extractMaxChars)
+	}
+	pieces := len(splitEmbedChunks(text, defaultEmbedChunkChars))
+	if pieces <= 80 {
+		t.Fatalf("the fixture cut into %d pieces; it must exceed 80 to exercise the dense case", pieces)
+	}
+	if pieces > embedChunkMax {
+		t.Fatalf("%d runes cut into %d pieces, over the %d cap", n, pieces, embedChunkMax)
+	}
+	if _, err := e.Embed(context.Background(), text); err != nil {
+		t.Fatalf("a dense %d-rune memory (%d pieces) must be stored, got: %v", n, pieces, err)
+	}
+	if m := inner.maxAccepted(); m > defaultEmbedChunkChars {
+		t.Errorf("the model accepted a %d-rune text, want at most the %d budget", m, defaultEmbedChunkChars)
+	}
+}
+
+// worstChunkCount is the bound both the cap and the startup check are derived from.
+func TestWorstChunkCount(t *testing.T) {
+	if got := worstChunkCount(extractMaxChars, defaultEmbedChunkChars); got != 150 {
+		t.Errorf("worst case for %d runes at a %d budget = %d, want 150 (2 × 75)", extractMaxChars, defaultEmbedChunkChars, got)
+	}
+	if got := worstChunkCount(0, 400); got != 0 {
+		t.Errorf("worstChunkCount(0, 400) = %d, want 0", got)
+	}
+	if got := worstChunkCount(400, 0); got != 0 {
+		t.Errorf("worstChunkCount(400, 0) = %d, want 0", got)
+	}
+}
+
+// The startup check: a chunk budget whose WORST case cannot carry the extraction limit must
+// say so, because the failure otherwise appears only as a 500 on one long write.
 func TestEmbedChunkCapWarning(t *testing.T) {
 	if w := embedChunkCapWarning(defaultEmbedChunkChars); w != "" {
-		t.Errorf("the default budget must cover extractMaxChars, got %q", w)
+		t.Errorf("the default budget must cover extractMaxChars in the worst case, got %q", w)
+	}
+	if w := embedChunkCapWarning(375); w != "" {
+		t.Errorf("375 is the smallest budget that covers the worst case (2 × 80 = 160), got %q", w)
 	}
 	w := embedChunkCapWarning(200)
 	if w == "" {
-		t.Fatal("a 200-rune budget needs 150 pieces for extractMaxChars and must warn")
+		t.Fatal("a 200-rune budget needs up to 300 pieces for extractMaxChars and must warn")
 	}
 	if !strings.Contains(w, embedChunkCharsEnv) || !strings.Contains(w, "375") {
 		t.Errorf("the warning must name the knob and the minimum that works (375), got %q", w)
@@ -372,16 +417,17 @@ func (l *lengthLimitedEmbedder) maxAccepted() int {
 }
 
 // A text that cannot be stored within the piece cap fails with an error that says how
-// long it was and which model refused it — never a bare status code.
+// long it was and which model refused it — never a bare status code. 800 runes at a
+// 4-rune budget is 200 pieces, over the 160 cap.
 func TestChunkedEmbedderTooManyChunksNamesTheSize(t *testing.T) {
 	inner := &lengthLimitedEmbedder{limit: 5, dim: 4, inner: additiveEmbedder{dim: 4}}
 	e := NewChunkedEmbedder(inner, 4)
-	text := strings.Repeat("x", 500)
+	text := strings.Repeat("x", 800)
 	_, err := e.Embed(context.Background(), text)
 	if err == nil {
-		t.Fatal("a 500-rune text at a 4-rune budget must hit the chunk cap")
+		t.Fatal("an 800-rune text at a 4-rune budget must hit the chunk cap")
 	}
-	if !strings.Contains(err.Error(), "500") || !strings.Contains(err.Error(), "bge-large-zh-v1.5") {
+	if !strings.Contains(err.Error(), "800") || !strings.Contains(err.Error(), "bge-large-zh-v1.5") {
 		t.Errorf("error must name the rune count and the model, got: %v", err)
 	}
 }
