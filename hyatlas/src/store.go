@@ -1864,8 +1864,11 @@ func (s *MemoryStore) rebuildIndex() error {
 		// zero vector queries return all docs (score ~0) in arbitrary order.
 		res, err := col.QueryEmbedding(s.ctx, make([]float32, s.dimFor(l)), n, nil, nil)
 		if err != nil {
-			log.Printf("WARNING hyatlas: rebuildIndex %s: zero-vector query failed for %d docs (query dim=%d): %v",
-				l, n, s.dimFor(l), err)
+			// dimMismatchHint names HYATLAS_EMBED_DIMS when it is set: a hand-written
+			// dimension is the one place the store's length can disagree with the vectors
+			// already on disk, and the operator needs to know it is the suspect.
+			log.Printf("WARNING hyatlas: rebuildIndex %s: zero-vector query failed for %d docs (query dim=%d): %v%s",
+				l, n, s.dimFor(l), err, dimMismatchHint())
 			// if zero-vector fails, fall back to a neutral query. The fallback
 			// embeds through the configured embedder — give a slow-to-start
 			// remote embedder a chance before failing the layer (fix 3).

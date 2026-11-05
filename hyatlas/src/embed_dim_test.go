@@ -217,3 +217,18 @@ func TestRemoteEmbedderDimsDriveTheStartupRebuild(t *testing.T) {
 			"(0 means persistGuard refused the overwrite, the production symptom)", got)
 	}
 }
+
+// When a zero-vector query fails on vector length and the dimension was set by hand, the
+// warning must name that override: it is the only place the store's length can disagree
+// with the vectors already on disk, so it is the first thing to check.
+func TestDimMismatchHintNamesTheOverride(t *testing.T) {
+	t.Setenv(embedDimsEnv, "")
+	if got := dimMismatchHint(); got != "" {
+		t.Errorf("no override set, want no hint, got %q", got)
+	}
+	t.Setenv(embedDimsEnv, "384")
+	got := dimMismatchHint()
+	if !strings.Contains(got, embedDimsEnv) || !strings.Contains(got, "384") {
+		t.Errorf("the hint must name the override and its value, got %q", got)
+	}
+}

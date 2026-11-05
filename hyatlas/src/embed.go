@@ -274,6 +274,19 @@ func embedDimSource(e Embedder) string {
 	return "unknown"
 }
 
+// dimMismatchHint explains a zero-vector query that failed on vector length when the
+// operator set HYATLAS_EMBED_DIMS by hand: that override is then the first thing to
+// suspect, because it is the only place the store's dimension can disagree with the
+// vectors already on disk. Empty when no override is set (nothing to blame).
+func dimMismatchHint() string {
+	raw := strings.TrimSpace(os.Getenv(embedDimsEnv))
+	if raw == "" {
+		return ""
+	}
+	return " — " + embedDimsEnv + "=" + raw + " is set: if the vectors on disk have another length, " +
+		"that override is the mismatch (unset it to probe the endpoint, or set it to the stored length)"
+}
+
 // LocalEmbedder is a deterministic fallback (BGE-ONNX wired later). Normalized.
 type LocalEmbedder struct{ dim int }
 
