@@ -94,10 +94,11 @@ func fuseHitsWeighted(vec, kw []SearchHit, minScore float64, limit int, wVec, wK
 }
 
 // identifierTerms returns the keyword terms of the identifier-like words in a short
-// query, or nil when the query is not one. A word is identifier-like when it holds a
-// digit, an underscore, or punctuation between letters and digits: RSI(2), Reg-T,
-// 19528, HYATLAS_SYNC_EXTRACT, discord-tps. Only queries of up to three words count;
-// in a longer sentence such a word is one part of a question, not the whole of it.
+// query, or nil when the query is not one. A word is identifier-like when it is ASCII
+// and holds a digit, an underscore, or a connector between letters and digits:
+// RSI(2), Reg-T, 19528, HYATLAS_SYNC_EXTRACT, discord-tps. Only queries of up to three
+// words count; in a longer sentence such a word is one part of a question, not the
+// whole of it.
 func identifierTerms(query string) []string {
 	words := strings.Fields(query)
 	if len(words) == 0 || len(words) > 3 {
@@ -113,17 +114,37 @@ func identifierTerms(query string) []string {
 	return terms
 }
 
+// identifierConnectors are the punctuation marks that join the parts of a name or a
+// code, and only when a letter or digit sits on both sides of one: HYATLAS_SYNC_EXTRACT,
+// RSI(2), Reg-T, discord-tps, pid=host, api/v1. Sentence punctuation (comma, semicolon,
+// colon, and their full-width forms) is deliberately absent: it separates the clauses
+// of a question, it does not make one name.
+const identifierConnectors = "_-./#@+=~()[]{}"
+
 // looksLikeIdentifier reports whether a single word reads as a name or code rather
-// than plain prose: it contains a digit or an underscore, or punctuation with a
-// letter or digit on both sides.
+// than plain prose: it is ASCII, and it contains a digit or an underscore, or one of
+// identifierConnectors with a letter or digit on both sides.
+//
+// Why ASCII: Chinese prose has no spaces between words, so a whole question arrives as
+// one "word". Any in-sentence separator then sat between two letters, read as
+// identifier punctuation, and turned the question into an "identifier query" (see
+// identifierTerms), whose requireTerms filter demanded that one hit quote both halves
+// of the question — an empty answer. A name or a code in this store is ASCII; a run of
+// CJK text is prose, never an identifier.
 func looksLikeIdentifier(w string) bool {
 	rs := []rune(strings.Trim(w, ".,;:!?\"'()[]{}"))
+	for _, r := range rs {
+		if r > unicode.MaxASCII {
+			return false
+		}
+	}
 	for i, r := range rs {
 		if unicode.IsDigit(r) || r == '_' {
 			return true
 		}
-		if i > 0 && i < len(rs)-1 && r != '\'' && r != '\u2019' && !unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsSpace(r) &&
-			(unicode.IsLetter(rs[i-1]) || unicode.IsDigit(rs[i-1])) && (unicode.IsLetter(rs[i+1]) || unicode.IsDigit(rs[i+1])) {
+		if i > 0 && i < len(rs)-1 && strings.ContainsRune(identifierConnectors, r) &&
+			(unicode.IsLetter(rs[i-1]) || unicode.IsDigit(rs[i-1])) &&
+			(unicode.IsLetter(rs[i+1]) || unicode.IsDigit(rs[i+1])) {
 			return true
 		}
 	}
@@ -132,7 +153,9 @@ func looksLikeIdentifier(w string) bool {
 
 // requireTerms keeps the hits whose text contains every term. For an identifier
 // query, a hit that does not mention the identifier is an embedding look-alike
-// ("hy_memory renamed to hyatlas" for HYATLAS_SYNC_EXTRACT), not an answer.
+// ("hy_memory renamed to hyatlas" for HYATLAS_SYNC_EXTRACT), not an answer. The
+// caller applies it as a narrowing of the fused ranking, never as a gate: an empty
+// result here means "no memory mentions this", and the fused hits are kept.
 func requireTerms(hits []SearchHit, terms []string) []SearchHit {
 	out := hits[:0:0]
 	for _, h := range hits {

@@ -238,8 +238,14 @@ func (r *searchRun) retrieve() error {
 		res = fuseHitsWeighted(res, kw, r.minScore, 0, wVec, wKw)
 		// A query that is an identifier (RSI(2), HYATLAS_SYNC_EXTRACT, a port) is
 		// answered only by memories that mention it; embedding look-alikes are noise.
+		// The narrowing is a preference, not a gate: when no hit mentions the
+		// identifier, the fused ranking stands. One channel finding nothing must not
+		// empty the whole query — an in-sentence separator used to make a question look
+		// like an identifier and did exactly that (see looksLikeIdentifier).
 		if terms := identifierTerms(r.req.Query); len(terms) > 0 {
-			res = requireTerms(res, terms)
+			if narrowed := requireTerms(res, terms); len(narrowed) > 0 {
+				res = narrowed
+			}
 		}
 	}
 	r.hits = res
