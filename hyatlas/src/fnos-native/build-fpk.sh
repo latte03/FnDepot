@@ -126,8 +126,21 @@ if MODEL_DIR="$(resolve_models)"; then
   echo "models from: $MODEL_DIR"
   cp "$MODEL_DIR/libonnxruntime.so" "$MODEL_DIR/model_int8.onnx" "$MODEL_DIR/tokenizer.json" "$APPROOT/models/"
 else
-  echo "models not found on disk, extracting from $REF_FPK (inner app.tgz)"
-  [ -f "${REF_FPK:-}" ] || { echo "FATAL: 模型既不在 MODEL_SRC(/tmp/b2-models) 也不在 REF_FPK（当前 REF_FPK=${REF_FPK:-<未设置>}）。本机请显式传 MODEL_SRC=/vol1/@appcenter/hyatlas/models" >&2; exit 1; }
+  echo "models not found on disk, extracting from ${REF_FPK:-<未设置>} (inner app.tgz)"
+  [ -f "${REF_FPK:-}" ] || { cat >&2 <<EOM
+FATAL: 模型三件套找不到，无法继续打包。
+  已尝试的查找顺序：MODEL_SRC → /tmp/b2-models → REF_FPK 内层 app.tgz
+  当前 MODEL_SRC=${MODEL_SRC:-<未设置>}，REF_FPK=${REF_FPK:-<未设置>}
+
+  说明：这台机器上没有 /vol2/1000/workspace/hy450-sync/（那是作者机器的路径，
+  4.5.0-2 产物早已不在），所以 REF_FPK 兜底默认留空——这不是配置写错，是「本机没有兜底 fpk」。
+
+  本机正解：显式指定现役模型目录
+      MODEL_SRC=/vol1/@appcenter/hyatlas/models bash build-fpk.sh <输出路径>
+  该目录三件套 sha 与脚本里的 SHA_ONNX/SHA_ORT/SHA_TOK 逐件相符（2026-11 实测）。
+  确需用 fpk 兜底时，再显式传 REF_FPK=/path/to/xxx.fpk。
+EOM
+  exit 1; }
   tar -xf "$REF_FPK" -C "$STAGING" app.tgz
   mkdir -p "$STAGING/mx" "$APPROOT/models"
   tar -xzf "$STAGING/app.tgz" -C "$STAGING/mx" ./models
