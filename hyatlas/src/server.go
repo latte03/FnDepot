@@ -89,6 +89,11 @@ type Server struct {
 		mu   sync.Mutex
 		last time.Time
 	}
+	// reembedBusy is held while a re-embed pass runs (/api/v1/admin/reembed), so a
+	// second request is answered 409 instead of interleaving with the first pass.
+	// Atomic to read, not a lock to wait on: the request that loses the race must be
+	// told, not queued.
+	reembedBusy atomic.Bool
 
 	// mu guards lastExtractErr: the extraction goroutines write it from
 	// background contexts while /api/v1/status reads it on request.
@@ -2230,6 +2235,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/v1/admin/dedupe_facts", s.handleDedupeFacts)
 	mux.HandleFunc("/api/v1/admin/backlog", s.handleBacklog)
 	mux.HandleFunc("/api/v1/admin/restore", s.handleRestore)
+	// fork (fnos): re-embed the whole store in place, with the server up (see
+	// maintenance.go); the offline tool in scripts/reembed needs it stopped.
+	mux.HandleFunc("/api/v1/admin/reembed", s.handleReembed)
 	mux.HandleFunc("/api/v1/llm/key", s.handleLLMKey)
 	mux.HandleFunc("/api/v1/llm/test", s.handleLLMTest)
 	mux.HandleFunc("/api/v1/now", s.handleNow)

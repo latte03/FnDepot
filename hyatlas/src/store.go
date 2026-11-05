@@ -57,6 +57,11 @@ type MemoryStore struct {
 	// clauses holds the search-only clause rows of long L3 facts (see clauses.go).
 	// It is not a memory.Layer, so counts, lists and normal search never see it.
 	clauses *chromem.Collection
+	// byName holds every collection allCollections() names, keyed by collection name.
+	// It is the same set of collection objects as cols plus clauses, kept separate so
+	// the re-embed pass (and anything else that walks "everything the server holds")
+	// does not have to rebuild the list and cannot miss one.
+	byName map[string]*chromem.Collection
 
 	// aliases maps a user ID to every ID of the same person (HYATLAS_USER_ALIASES),
 	// the whole group, itself included. It is set once at start with SetAliases and
@@ -148,6 +153,25 @@ type MemoryStore struct {
 	closed      bool
 }
 
+// allCollections names every chromem collection this server owns: the eight memory
+// layers of memory.All() — which includes l8_entity, where the entity pages are
+// mirrored so recall can find them — plus the search-only clause rows of long L3
+// facts. It is the single source of truth for "what does this service hold":
+// NewMemoryStore creates exactly these, and the re-embed pass walks exactly these, so
+// the two cannot drift apart again (a collection one of them forgets is a collection
+// nothing maintains).
+//
+// The offline re-embedder in scripts/reembed is a separate Go module and cannot call
+// this, so it carries its own copy of the list. Changing one means changing the other.
+func allCollections() []string {
+	layers := memory.All()
+	out := make([]string, 0, len(layers)+1)
+	for _, l := range layers {
+		out = append(out, string(l))
+	}
+	return append(out, clauseCollection)
+}
+
 // NewMemoryStore opens (or creates) the persistent layer DB + graph + doc index.
 func NewMemoryStore(ctx context.Context, dir string, embed Embedder, graphPath string, dims int) (*MemoryStore, error) {
 	db, err := chromem.NewPersistentDB(dir, false)
@@ -162,7 +186,8 @@ func NewMemoryStore(ctx context.Context, dir string, embed Embedder, graphPath s
 		return embed.Embed(c, text)
 	}
 	s := &MemoryStore{db: db, g: g, embed: embed, semantic: isSemantic(embed), ctx: ctx,
-		cols: map[memory.Layer]*chromem.Collection{}, index: map[string]DocIndex{},
+		cols: map[memory.Layer]*chromem.Collection{}, byName: map[string]*chromem.Collection{},
+		index:      map[string]DocIndex{},
 		superseded: map[string]memory.Layer{}, hidden: map[memory.Layer]int{},
 		labelRows: map[memory.Layer]map[string]int{}, mirrors: map[mirrorKey][]string{},
 		replacedBy: map[string][]string{}, kw: newKwIndex(),
@@ -172,18 +197,22 @@ func NewMemoryStore(ctx context.Context, dir string, embed Embedder, graphPath s
 		stopFlush:  make(chan struct{}), flushDone: make(chan struct{})}
 	// load persisted counters before rebuildIndex so writes/searches survive restart.
 	s.loadUsage()
-	for _, l := range memory.All() {
-		col, err := db.GetOrCreateCollection(string(l), nil, ef)
+	// One loop creates every collection the server owns, from the one list that says
+	// what those are. The layers and the clause rows are looked up from the same map
+	// afterwards, so neither can be created without the other knowing (this loop and
+	// the re-embed pass used to build their lists separately and drifted: the offline
+	// tool was missing l8_entity and l3_clause entirely).
+	for _, name := range allCollections() {
+		col, err := db.GetOrCreateCollection(name, nil, ef)
 		if err != nil {
 			return nil, err
 		}
-		s.cols[l] = col
+		s.byName[name] = col
 	}
-	clauses, err := db.GetOrCreateCollection(clauseCollection, nil, ef)
-	if err != nil {
-		return nil, err
+	for _, l := range memory.All() {
+		s.cols[l] = s.byName[string(l)]
 	}
-	s.clauses = clauses
+	s.clauses = s.byName[clauseCollection]
 	pages, err := NewPageStore(dir, s)
 	if err != nil {
 		return nil, err
@@ -1907,11 +1936,6 @@ func countIndexFile(path string) int {
 // needsEmbedderProbe reports whether the configured embedder talks to an
 // external process (whose startup can race with ours). Embedded/local models
 // are in-process and always ready by the time rebuildIndex runs.
-//
-// Fork (fnos): this used to be a type assertion on *OpenAIEmbedder, which a decorator
-// (the chunking embedder installed in main) makes permanently false — the readiness
-// wait would silently disappear while every test that builds a bare embedder stayed
-// green. isRemote answers for the wrapped embedder instead.
 func (s *MemoryStore) needsEmbedderProbe() bool {
 	return isRemote(s.embed)
 }

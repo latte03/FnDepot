@@ -172,6 +172,10 @@ type maintenanceRequest struct {
 	Layer string `json:"layer"`
 	// IDs are the superseded rows restore makes live again.
 	IDs []string `json:"ids"`
+	// Layers and Limit are what reembed takes: the collections to re-embed (empty =
+	// every collection the store owns) and a cap on how many rows one pass touches.
+	Layers []string `json:"layers"`
+	Limit  int      `json:"limit"`
 }
 
 // readMaintenance refuses the request unless the server runs with HYATLAS_ADMIN=on,
@@ -396,4 +400,41 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	jsonResponse(w, 200, resp)
+}
+
+// handleReembed is POST /api/v1/admin/reembed: it re-embeds every stored document
+// with the embedder this process is configured with, in place and under the same
+// document ID, so a store written by an older model stops mixing two vector spaces
+// (vectors from different models are not comparable, so similarity between the old and
+// the new half is noise).
+//
+// Why this exists next to scripts/reembed: that tool needs the server stopped, walks
+// doc_index.json, and therefore cannot see the clause rows at all (they are
+// search-only and never enter the index). This route runs with the server up and
+// covers every collection the store owns (see allCollections).
+//
+// Body: {"dry_run": true|false, "layers": [...], "limit": N}. Default is a dry run,
+// which embeds every document — that is how it finds out whether the pass would work —
+// and writes nothing. Only one pass runs at a time; a second request gets 409. Nothing
+// is ever deleted, so a pass that is interrupted (or the process restarted mid-pass)
+// is finished by calling it again.
+func (s *Server) handleReembed(w http.ResponseWriter, r *http.Request) {
+	body, dry, ok := s.readMaintenance(w, r)
+	if !ok {
+		return
+	}
+	names, err := reembedTargets(body.Layers)
+	if err != nil {
+		jsonResponse(w, 400, map[string]any{"error": err.Error()})
+		return
+	}
+	// One pass at a time: two concurrent passes would both hold whole collections and
+	// interleave their rebuilds for no gain.
+	if !s.reembedBusy.CompareAndSwap(false, true) {
+		jsonResponse(w, 409, map[string]any{"busy": true, "error": "a re-embed pass is already running"})
+		return
+	}
+	defer s.reembedBusy.Store(false)
+	rep := s.store.ReembedAll(r.Context(), names, body.Limit, dry)
+	jsonResponse(w, 200, rep)
 }

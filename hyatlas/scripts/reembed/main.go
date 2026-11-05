@@ -1,4 +1,21 @@
-// Package main: hyatlas full-vault re-embedder (bge-large-zh-v1.5 → bge-m3).
+// Package main: hyatlas full-vault re-embedder (stopped-server fallback).
+//
+// ── Preferred path first ─────────────────────────────────────────────────────
+// POST /api/v1/admin/reembed on a running hyatlas-go does this work with the
+// server up: it walks every collection the store owns (see allCollections() in
+// hyatlas/src/store.go) and therefore also re-embeds the clause rows, which this
+// tool cannot reach. Use THIS tool only as the stopped-server emergency path:
+// when the data dir must not be opened by a live server, or when the new model is
+// one the server itself is not configured with.
+//
+// ── The collection list lives in two places ──────────────────────────────────
+// The names below are a copy of allCollections() in hyatlas/src/store.go: the
+// eight memory layers of memory.All() — which includes l8_entity, where the
+// entity pages are mirrored — plus l3_clause for the search-only clause rows.
+// This file is a separate Go module, so it cannot import that function.
+// CHANGING ONE MEANS CHANGING THE OTHER. A name missing here is a collection
+// nothing re-embeds: it was missing l8_entity (the live NAS store holds 16 entity
+// pages) and l3_clause entirely.
 //
 // Opens the same chromem-go persistent DB that hyatlas-go uses, reads
 // doc_index.json for the source-of-truth content, re-embeds every document
@@ -82,6 +99,55 @@ type Stats struct {
 	Elapsed    time.Duration `json:"elapsed_sec"`
 	StartedAt  time.Time     `json:"started_at"`
 	FinishedAt time.Time     `json:"finished_at,omitempty"`
+}
+
+// storeCollections is the copy of allCollections() in hyatlas/src/store.go: the eight
+// memory layers of memory.All() — l8_entity included, where the entity pages are
+// mirrored — plus l3_clause, the search-only clause rows of long L3 facts. This module
+// cannot import that function, so keep the two lists identical (see the package comment).
+var storeCollections = []string{
+	"l1_profile",
+	"l2_raw",
+	"l3_fact",
+	"l4_summary",
+	"l5_knowledge",
+	"l6_schema",
+	"l7_intention",
+	"l8_entity",
+	"l3_clause",
+}
+
+// reportCoverage says, per collection, how many documents this run will actually
+// re-embed. It walks doc_index.json, which holds the layer rows but never the
+// search-only clause rows (those are written straight into l3_clause), so a run can
+// finish "successfully" while part of the store keeps vectors from the old model. The
+// server's POST /api/v1/admin/reembed covers them; this tool cannot, and must say so
+// rather than report a clean total.
+func reportCoverage(cols map[string]*chromem.Collection, index map[string]DocIndex) {
+	inIndex := make(map[string]int, len(storeCollections))
+	for _, d := range index {
+		inIndex[d.Layer]++
+	}
+	names := make([]string, 0, len(cols))
+	for name := range cols {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		have := cols[name].Count()
+		if have == 0 {
+			continue
+		}
+		covered := inIndex[name]
+		if covered >= have {
+			fmt.Fprintf(os.Stderr, "[coverage] %s: %d docs, all listed in doc_index.json\n", name, have)
+			continue
+		}
+		fmt.Fprintf(os.Stderr,
+			"[coverage] %s: %d docs in the collection, %d listed in doc_index.json — %d NOT covered by this tool; "+
+				"use POST /api/v1/admin/reembed for those\n",
+			name, have, covered, have-covered)
+	}
 }
 
 func main() {
@@ -191,8 +257,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "ERROR opening chromem DB: %v\n", err)
 			os.Exit(1)
 		}
-		cols = make(map[string]*chromem.Collection, 7)
-		for _, layer := range []string{"l1_profile", "l2_raw", "l3_fact", "l4_summary", "l5_knowledge", "l6_schema", "l7_intention"} {
+		cols = make(map[string]*chromem.Collection, len(storeCollections))
+		for _, layer := range storeCollections {
 			col, err := db.GetOrCreateCollection(layer, nil, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR opening collection %s: %v\n", layer, err)
@@ -200,6 +266,7 @@ func main() {
 			}
 			cols[layer] = col
 		}
+		reportCoverage(cols, index)
 	}
 
 	// ── 5. HTTP client with proxy ──
