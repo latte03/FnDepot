@@ -1907,9 +1907,13 @@ func countIndexFile(path string) int {
 // needsEmbedderProbe reports whether the configured embedder talks to an
 // external process (whose startup can race with ours). Embedded/local models
 // are in-process and always ready by the time rebuildIndex runs.
+//
+// Fork (fnos): this used to be a type assertion on *OpenAIEmbedder, which a decorator
+// (the chunking embedder installed in main) makes permanently false — the readiness
+// wait would silently disappear while every test that builds a bare embedder stayed
+// green. isRemote answers for the wrapped embedder instead.
 func (s *MemoryStore) needsEmbedderProbe() bool {
-	_, remote := s.embed.(*OpenAIEmbedder)
-	return remote
+	return isRemote(s.embed)
 }
 
 // waitForEmbedder probes the embedder with exponential backoff (500ms..5s)
@@ -1939,15 +1943,26 @@ func (s *MemoryStore) waitForEmbedder(maxWait time.Duration) bool {
 	}
 }
 
+// dimFor is the vector length to use in a zero-vector enumeration query for layer l.
+//
+// It prefers the dimension the store was opened with, which is what the embedder
+// actually produces (see embedDims in main). A store opened with dims <= 0 has no
+// authoritative number, so it falls back to the package-level dimFor below — that
+// fallback is a silent trap (the query then compares vectors of different lengths and
+// every layer quietly fails), so it says so out loud.
 func (s *MemoryStore) dimFor(l memory.Layer) int {
 	if s.dims > 0 {
 		return s.dims
 	}
-	return 384
+	log.Printf("WARNING hyatlas: store has no embedding dimension (dims=0); using the %d default for layer %s",
+		dimFor(l), l)
+	return dimFor(l)
 }
 
 // dimFor is the upstream default vector length (BGE-small); the store's dimFor
-// method above prefers the fork's configured dims (1024 for bge-large-zh).
+// method above prefers the fork's configured dims (1024 for bge-large-zh). Keep both:
+// deleting the method would make every call site fall back to 384 without a compiler
+// error, which is exactly the dim mismatch this pair documents.
 func dimFor(l memory.Layer) int { return 384 }
 
 // updateMeta sets the metadata keys of patch on the live row id, and deletes a key

@@ -2025,8 +2025,19 @@ func main() {
 	case strings.EqualFold(embedBase, "local"):
 		embedder = NewLocalEmbedder(384)
 	default:
+		// fork (fnos): a remote endpoint's vector length is authoritative, not the
+		// historical 384. It is probed once here (HYATLAS_EMBED_DIMS overrides the
+		// probe), because the store sizes its zero-vector enumeration queries from
+		// embedDims: with 384 against 1024d documents every layer failed at startup,
+		// fell back to a real API call each, and /api/v1/status misreported the
+		// dimension the store actually indexes.
 		embedder = NewOpenAIEmbedder(embedBase, embedKey, embedModel)
+		embedDims = embedder.Dim()
 	}
+	// Fork (fnos): one startup line naming the dimension the store will size its
+	// vectors with and where that number came from, so a mismatch is visible here
+	// instead of only as a "vectors must have the same length" WARNING later.
+	log.Printf("embed: dims=%d from %s", embedDims, embedDimSource(embedder))
 	graphPath := rt.GraphPath
 	store, err := NewMemoryStore(ctx, dir, embedder, graphPath, embedDims)
 	if err != nil {
