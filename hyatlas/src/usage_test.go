@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/tuancookiez-hub/hyatlas-v4/memory"
 )
@@ -82,6 +83,99 @@ func TestUsedInReply(t *testing.T) {
 				t.Fatalf("usedInReply(%q, %q) = %v, want %v", c.memory, c.reply, got, c.want)
 			}
 		})
+	}
+}
+
+// cjkOverlap reports how many of the memory's distinct evidence terms come back in the
+// reply, using the same admission rules as usedInReply. Tests log it so the ratio that
+// decided the case is visible: a pass that only cleared the bar by a hair is worth
+// knowing about when the next tokenisation change lands.
+func cjkOverlap(memory, reply, query string) (hit, total int) {
+	replyTerms := map[string]bool{}
+	for _, t := range keywordTokens(reply) {
+		replyTerms[t] = true
+	}
+	queryTerms := map[string]bool{}
+	for _, t := range keywordTokens(query) {
+		queryTerms[t] = true
+	}
+	seen := map[string]bool{}
+	for _, t := range keywordTokens(memory) {
+		if !isLongEnoughTerm(t) || seen[t] || queryTerms[t] {
+			continue
+		}
+		seen[t] = true
+		total++
+		if replyTerms[t] {
+			hit++
+		}
+	}
+	return hit, total
+}
+
+// A memory written in Chinese is indexed as two-rune bigrams, so the old gate
+// (four runes) dropped every one of its terms and usedInReply could only answer
+// false — the usage feedback loop silently ignored every memory the server wrote
+// after the language rule made Chinese the norm. The positive case pins that a
+// Chinese reply really quoting the memory counts; the negative case pins that an
+// equally long reply on another topic still does not.
+func TestUsedInReplyChineseMemory(t *testing.T) {
+	const memory = "混元记忆的快照周期默认是每六小时一次，可以在环境变量里调整；自动快照只保留最近七份，更早的会被清理掉。"
+	const query = "docker 容器怎么挂载目录"
+
+	cases := []struct {
+		name  string
+		reply string
+		want  bool
+	}{
+		{
+			name:  "quotes two clauses",
+			reply: "快照周期默认是每六小时一次，自动快照只保留最近七份。",
+			want:  true,
+		},
+		{
+			name:  "same length other topic",
+			reply: "他说的是对的，我们下次再一起讨论这个问题，顺便把文档更新一下。",
+			want:  false,
+		},
+		{
+			// The stress case for the 30% bar: a reply on another subject that still
+			// repeats the generic pairs a Chinese sentence shares with any technical
+			// text (可以/自动/调整/保留/默认/最近/清理). Bigrams make these cheap to
+			// hit, so this is where a too-loose threshold would show up.
+			name:  "generic pairs but other topic",
+			reply: "系统可以自动调整参数，我们保留原来的默认值，最近没有再清理缓存。",
+			want:  false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			hit, total := cjkOverlap(memory, c.reply, query)
+			t.Logf("evidence terms: %d of %d (%.0f%%)", hit, total, 100*float64(hit)/float64(total))
+			if total == 0 {
+				t.Fatal("no evidence terms admitted: the gate dropped every Chinese bigram")
+			}
+			if got := usedInReply(memory, c.reply, query); got != c.want {
+				t.Fatalf("usedInReply = %v, want %v (overlap %d/%d)", got, c.want, hit, total)
+			}
+		})
+	}
+}
+
+// The English path must not move: a Latin token still needs four runes to count, so
+// every token the new predicate admits is one the old rule admitted too.
+func TestUsedInReplyEnglishGateUnchanged(t *testing.T) {
+	const memory = "the snapshot interval lives in HYATLAS_SNAPSHOT_EVERY and defaults to six hours"
+	for _, tok := range keywordTokens(memory) {
+		if isLongEnoughTerm(tok) && utf8.RuneCountInString(tok) < 4 {
+			t.Fatalf("token %q admitted by the new gate but rejected by the old one", tok)
+		}
+	}
+	if !usedInReply(memory, "the snapshot interval defaults to six hours", "") {
+		t.Fatal("English overlap no longer counts as used")
+	}
+	if usedInReply(memory, "weather is mild and the sky is clear", "") {
+		t.Fatal("unrelated English reply counted as used")
 	}
 }
 

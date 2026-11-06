@@ -302,6 +302,17 @@ func rerankUsage(hits []SearchHit, u *UsageStats) []SearchHit {
 	return rerankByFactor(hits, func(_ int, h SearchHit) float64 { return u.Factor(h.ID) })
 }
 
+// isLongEnoughTerm reports whether a keyword token carries enough of the memory to
+// be evidence the reply used it. A Latin word needs four runes; a Chinese bigram is
+// the unit the index itself is built from, so two runes is already specific. The
+// gate exists to drop short common words, not the whole Chinese vocabulary.
+func isLongEnoughTerm(t string) bool {
+	if utf8.RuneCountInString(t) >= 4 {
+		return true
+	}
+	return isCJKSegment(t)
+}
+
 // usedInReply reports whether reply evidently drew on memory text. Words of the
 // query that led to the recall do not count: a reply naturally repeats the question
 // ("hyatlas", "extraction"), so every on-topic memory would look used. Only what the
@@ -328,7 +339,7 @@ func usedInReply(memory, reply, query string) bool {
 	memTerms := map[string]bool{}
 	var ordered []string
 	for _, t := range keywordTokens(memory) {
-		if utf8.RuneCountInString(t) < 4 || memTerms[t] || queryTerms[t] {
+		if !isLongEnoughTerm(t) || memTerms[t] || queryTerms[t] {
 			continue
 		}
 		memTerms[t] = true
