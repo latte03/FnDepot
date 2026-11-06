@@ -49,7 +49,7 @@ const episodeFactChars = 300
 
 // episodeSystemPrompt is the system message for an episode summary. It asks for
 // prose that only restates the given facts, so the summary adds no invented detail.
-const episodeSystemPrompt = "You summarise one episode of work from the memory facts it produced. Write 1-3 plain sentences: what was worked on, what was decided or found, and what is still open. Use only the facts given. No lists, no headings, no preamble."
+const episodeSystemPrompt = "You summarise one episode of work from the memory facts it produced. Write 1-3 plain sentences: what was worked on, what was decided or found, and what is still open. Use only the facts given. No lists, no headings, no preamble." + "\n\n" + languageRule
 
 // episode is one owner's run of writes with no gap longer than Episodes.gap.
 type episode struct {

@@ -49,7 +49,7 @@ For each new fact choose one operation:
 Use only the ids shown. Never invent an id. Two facts that merely share a topic are ADD, unless one of the LINK relations fits.
 Reply with JSON only, in this form:
 {"ops": [{"op": "ADD|UPDATE|SUPERSEDE|LINK", "fact": "<new fact id>", "targets": ["<candidate id>"], "text": "<UPDATE only>", "count": "<UPDATE only, optional>", "dates": ["<UPDATE only, optional>"], "reason": "<SUPERSEDE only>", "relation": "<LINK only>"}]}
-Reply {"ops": []} when nothing applies.`
+Reply {"ops": []} when nothing applies.` + "\n\n" + languageRule
 
 // reconcileOp is one decision from the reconcile model. Fact is the id of the new
 // fact it is about. Targets are stored fact ids that were shown as candidates. Targets

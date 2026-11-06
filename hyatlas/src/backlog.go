@@ -46,7 +46,7 @@ Rules:
 - outdated: ONLY when a newer fact (later date) states a different value or state for the same subject, so the older one is no longer true. "by" must be that newer fact. A fact is never outdated just for being old, and never by a fact about a different subject. When unsure, leave it out.
 - pages: 0-5 durable things these facts are about (projects, tools, people, places, organisations), each with its CURRENT state taken from the newest facts. Do not make pages for one-off events.
 - Use only ids from the list. Never invent an id.
-Return ONLY valid JSON, no prose, no markdown fences.`
+Return ONLY valid JSON, no prose, no markdown fences.` + "\n\n" + languageRule
 
 // BacklogOutdated is one planned supersede: fact ID is no longer true because the
 // newer fact By says otherwise. The texts are kept so the plan can be read.

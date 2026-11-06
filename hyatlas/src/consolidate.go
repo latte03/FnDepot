@@ -1623,7 +1623,26 @@ func (c *Consolidator) ask(ctx context.Context, facts, schemas []DocIndex) (*Con
 - knowledge: 0-5 entity-relation-entity edges, each corroborated in "evidence" by fact ids from AT LEAST 2 different turns. A triple resting on one turn is just that turn restated — do not emit it. Use only ids from the input. Only durable relations: what something is, uses, depends on, belongs to, or where it lives. Never an event, an amount, a status or a one-off outcome ("trade filled at $244", "server returned 403") — those are facts, not knowledge.
 - arc: null if the facts are too few or too unrelated to synthesise.`
 	}
-	system := `You are a memory consolidation engine. Below are durable facts already stored, each with its id and the turn it came from. Reason ACROSS them — not about any single one — and output a JSON object with EXACTLY these keys:
+	system := consolidateSystem(graphKeys, graphRules, b.String()+existing.String()+names.String())
+
+	messages := []map[string]string{
+		{"role": "system", "content": system},
+		{"role": "user", "content": "Consolidate the facts above."},
+	}
+	content, err := c.llm.chat(ctx, messages, 0.1)
+	if err != nil {
+		return nil, err
+	}
+	return parseConsolidation(content)
+}
+
+// consolidateSystem builds the system message of one consolidation pass: the fixed
+// rules, the graph keys and graph rules when the graph is on, then the material. It is
+// a function rather than a literal at the call site so the exact prompt that is sent is
+// reachable from a test, which is what keeps the language rule on it (see
+// lang_test.go).
+func consolidateSystem(graphKeys, graphRules, material string) string {
+	return `You are a memory consolidation engine. Below are durable facts already stored, each with its id and the turn it came from. Reason ACROSS them — not about any single one — and output a JSON object with EXACTLY these keys:
 {
   "merges": [{"text": "<one fact that replaces several>", "layer": "user_preferences|project_state|technical_lesson|decision|negative_knowledge", "supersedes": ["<id>", "<id>"]}],
   "drops": [{"id": "<id>", "reason": "<why this fact is stale or trivially obvious>"}],
@@ -1636,18 +1655,10 @@ Rules:
 - Never invent an id. Never reference a fact not listed.
 Return ONLY valid JSON, no prose, no markdown fences.
 
-Facts:
-` + b.String() + existing.String() + names.String()
+` + languageRule + `
 
-	messages := []map[string]string{
-		{"role": "system", "content": system},
-		{"role": "user", "content": "Consolidate the facts above."},
-	}
-	content, err := c.llm.chat(ctx, messages, 0.1)
-	if err != nil {
-		return nil, err
-	}
-	return parseConsolidation(content)
+Facts:
+` + material
 }
 
 // factDate returns the YYYY-MM-DD part of a stored timestamp for the consolidation
