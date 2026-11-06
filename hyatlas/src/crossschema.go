@@ -171,6 +171,23 @@ func (c *Consolidator) crossCandidates(owner scopeKey) ([]DocIndex, bool) {
 	return schemas, len(seen) >= 2
 }
 
+// crossSchemaSystem is the prompt for the cross-topic pass. It is a function rather
+// than a literal inside crossSchemaOwner so the language rule sits in one place with
+// the other prompts, and so the test can check the bytes actually sent instead of a
+// copy of them.
+func crossSchemaSystem(maxNew int, material string) string {
+	return fmt.Sprintf(`You look for patterns that cross topics. Below are one person's stored schemas (schema_id | pattern), each found inside a single topic. Return at most %d NEW patterns that hold across two or more of them, from different topics, and are not just one of them reworded. Each pattern is one full sentence that says what it is and when it applies.
+
+Return ONLY valid JSON, no prose, no markdown fences:
+{"patterns": [{"pattern": "<the cross-topic pattern>", "evidence": ["<schema_id>", "<schema_id>"]}]}
+"evidence" lists the ids of the schemas below that the pattern generalises, at least two. Return {"patterns": []} if there is none.
+
+`+languageRule+`
+
+Schemas:
+%s`, maxNew, material)
+}
+
 // crossSchemaOwner makes the one call for an owner and writes what it returns. It
 // returns how many schemas were written.
 func (c *Consolidator) crossSchemaOwner(ctx context.Context, owner scopeKey, schemas []DocIndex) (int, error) {
@@ -178,14 +195,7 @@ func (c *Consolidator) crossSchemaOwner(ctx context.Context, owner scopeKey, sch
 	for _, d := range schemas {
 		fmt.Fprintf(&b, "- %s | %s\n", d.ID, utf8Trunc(oneLine(d.Content), 300))
 	}
-	system := fmt.Sprintf(`You look for patterns that cross topics. Below are one person's stored schemas (schema_id | pattern), each found inside a single topic. Return at most %d NEW patterns that hold across two or more of them, from different topics, and are not just one of them reworded. Each pattern is one full sentence that says what it is and when it applies.
-
-Return ONLY valid JSON, no prose, no markdown fences:
-{"patterns": [{"pattern": "<the cross-topic pattern>", "evidence": ["<schema_id>", "<schema_id>"]}]}
-"evidence" lists the ids of the schemas below that the pattern generalises, at least two. Return {"patterns": []} if there is none.
-
-Schemas:
-%s`, crossSchemaMaxNew, b.String())
+	system := crossSchemaSystem(crossSchemaMaxNew, b.String())
 	content, err := c.llm.chat(ctx, []map[string]string{
 		{"role": "system", "content": system},
 		{"role": "user", "content": "Find the cross-topic patterns."},
