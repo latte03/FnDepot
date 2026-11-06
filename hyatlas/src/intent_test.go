@@ -28,6 +28,26 @@ func TestClassifyQueryTable(t *testing.T) {
 	}
 }
 
+// TestChineseConceptualQuestionIsConceptual checks that a Chinese question about a
+// reason or a way of doing something is conceptual. The table above cannot see it:
+// Chinese has no spaces, so classifyQuery gets the whole question as one word and the
+// whole-word table never fires, which made every Chinese question factual.
+func TestChineseConceptualQuestionIsConceptual(t *testing.T) {
+	cases := []struct {
+		query string
+		want  queryIntent
+	}{
+		{"混元记忆的快照周期怎么改", intentConceptual},
+		{"为什么 bge 端点报 20015", intentConceptual},
+		{"NAS 的 IP 是多少", intentFactual},
+	}
+	for _, c := range cases {
+		if got := classifyQuery(c.query); got != c.want {
+			t.Errorf("classifyQuery(%q) = %d, want %d", c.query, got, c.want)
+		}
+	}
+}
+
 // TestIntentWeights checks the vector and keyword weights of each intent.
 func TestIntentWeights(t *testing.T) {
 	cases := []struct {

@@ -29,10 +29,26 @@ var conceptualWords = map[string]bool{
 	"explain": true,
 }
 
+// conceptualCJK are the same marks for a Chinese question, matched as substrings
+// instead of whole words. classifyQuery cuts text on anything that is not a letter or a
+// digit, and Chinese puts no spaces between words: a whole question arrives as one
+// word, so the whole-word table can never fire on it. Every Chinese question therefore
+// came out factual, with equal weights, and the kind of question it was never counted.
+// Substring matching is what this script allows. The entries are specific enough that
+// an ordinary factual question does not carry one by accident: "NAS 的 IP 是多少" stays
+// factual.
+var conceptualCJK = []string{
+	"为什么", "为何", "为啥", "怎么", "如何", "怎样",
+	"通常", "一般", "平时", "惯例", "规律", "模式",
+	"习惯", "偏好", "倾向于", "更喜欢", "往往", "经常",
+	"解释", "原理", "机制",
+}
+
 // classifyQuery returns the intent of a query. An identifier-only query is navigational,
 // because the exact term is what matters. A query that asks how, why, or about a habit
 // or pattern is conceptual. Every other query is factual. The checks run in that order,
-// so a short identifier query wins over a conceptual word.
+// so a short identifier query wins over a conceptual word. English is matched word by
+// word and Chinese by substring, for the reason given on conceptualCJK.
 func classifyQuery(q string) queryIntent {
 	if len(identifierTerms(q)) > 0 {
 		return intentNavigational
@@ -45,6 +61,11 @@ func classifyQuery(q string) queryIntent {
 			return intentConceptual
 		}
 		if w == "tend" && i+1 < len(words) && words[i+1] == "to" {
+			return intentConceptual
+		}
+	}
+	for _, mark := range conceptualCJK {
+		if strings.Contains(q, mark) {
 			return intentConceptual
 		}
 	}
