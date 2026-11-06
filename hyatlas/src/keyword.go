@@ -251,15 +251,125 @@ type keywordScore struct {
 	Matched int
 }
 
-// keywordRequired is how many distinct query terms a document must contain to count
-// as a keyword match: all of them for a query of up to three terms, three quarters
-// (rounded up) beyond that. Requiring most terms is what keeps a stray common word
-// from returning an unrelated memory.
+// keywordRequired is how many query units a document must contain to count as a
+// keyword match: all of them for a query of up to three units, three quarters
+// (rounded up) beyond that. Requiring most units is what keeps a stray common word
+// from returning an unrelated memory. The argument counts units, not flat tokens —
+// see groupQueryUnits for why Chinese cannot be counted token by token.
 func keywordRequired(n int) int {
 	if n <= 3 {
 		return n
 	}
 	return int(math.Ceil(0.75 * float64(n)))
+}
+
+// isCJKBigram reports whether t is a two-rune Chinese token: the unit keywordTokens
+// indexes Chinese text in.
+func isCJKBigram(t string) bool {
+	r := []rune(t)
+	return len(r) == 2 && isCJKSegment(t)
+}
+
+// bigramsOverlap reports whether next continues prev: the second rune of prev is the
+// first rune of next.
+func bigramsOverlap(prev, next string) bool {
+	p, n := []rune(prev), []rune(next)
+	return len(p) == 2 && len(n) == 2 && p[1] == n[0]
+}
+
+// groupQueryUnits rebuilds the units the keyword gate counts from the token list, in the
+// order the tokens appear. Pass the raw tokens, not the deduplicated list: a term that
+// repeats earlier in the query would otherwise be dropped from its own phrase and cut
+// the chain in two ("…该输 输出 出判…" becomes "…该输" and "出判…"), which is how one
+// real memory fell one unit short of the gate.
+//
+// A run of Chinese bigrams that overlap head to tail ("混元 元记 记忆") is one phrase:
+// the gate has to count it as the one thing the user typed, not as three independent
+// terms. Counting tokens is what broke the gate — a query of k characters makes k-1
+// bigrams, so a three-quarters rule demanded the clause almost verbatim, and rewording
+// one character breaks two bigrams at once. Every other token (a Latin word, a number, a
+// lone bigram) is a unit by itself, which is how the gate counted before Chinese was
+// indexed in bigrams, so the gate can never become stricter than it was.
+func groupQueryUnits(terms []string) [][]string {
+	units := make([][]string, 0, len(terms))
+	var chain []string
+	flush := func() {
+		if len(chain) > 0 {
+			units = append(units, dedupeTerms(chain))
+			chain = nil
+		}
+	}
+	for _, t := range terms {
+		if !isCJKBigram(t) {
+			flush()
+			units = append(units, []string{t})
+			continue
+		}
+		if len(chain) == 0 || !bigramsOverlap(chain[len(chain)-1], t) {
+			flush()
+			chain = []string{t}
+			continue
+		}
+		chain = append(chain, t)
+	}
+	flush()
+	return dedupeUnits(units)
+}
+
+// dedupeTerms drops repeated terms from a unit, keeping the first occurrence: a bigram
+// that appears twice in one phrase must not count twice toward its threshold.
+func dedupeTerms(terms []string) []string {
+	seen := make(map[string]bool, len(terms))
+	out := make([]string, 0, len(terms))
+	for _, t := range terms {
+		if !seen[t] {
+			seen[t] = true
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// dedupeUnits drops units that repeat a whole phrase, keeping the first: a query that
+// says the same thing twice asks for it once.
+func dedupeUnits(units [][]string) [][]string {
+	seen := make(map[string]bool, len(units))
+	out := make([][]string, 0, len(units))
+	for _, u := range units {
+		key := strings.Join(u, "\x00")
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+// unitsHit counts the query units a document contains. A one-term unit is hit when the
+// document has that term. A Chinese phrase is hit when at least half of its bigrams are
+// there (rounded up, never zero): a document quoting the phrase verbatim hits all of
+// them, so this can only widen what the old whole-phrase test accepted, while a document
+// that merely shares one character with the phrase still misses.
+func unitsHit(units [][]string, tf map[string]int) int {
+	hit := 0
+	for _, u := range units {
+		if len(u) == 1 {
+			if tf[u[0]] > 0 {
+				hit++
+			}
+			continue
+		}
+		present := 0
+		for _, t := range u {
+			if tf[t] > 0 {
+				present++
+			}
+		}
+		if present >= (len(u)+1)/2 {
+			hit++
+		}
+	}
+	return hit
 }
 
 // kwDoc is one indexed document: how often each term occurs in it, and how many terms
@@ -329,7 +439,7 @@ func (k *kwIndex) remove(id string) {
 }
 
 // kwMatch is one ranked document of kwIndex.rank: its id, BM25 score, and how many
-// distinct query terms it contains.
+// query units it contains.
 type kwMatch struct {
 	ID      string
 	Score   float64
@@ -337,8 +447,9 @@ type kwMatch struct {
 }
 
 // rank scores the documents named by ids against the distinct query terms with BM25
-// (k1 1.2, b 0.75), keeps those that contain at least keywordRequired of them, and
-// returns them best first, ties broken by ID. The collection statistics (document
+// (k1 1.2, b 0.75), keeps those that contain at least keywordRequired of the query's
+// units, and returns them best first, ties broken by ID. Scoring works on the terms;
+// only the gate works on units (groupQueryUnits). The collection statistics (document
 // count, average length and each term's document frequency) are taken over ids alone,
 // so a search scoped to one owner scores as if the store held only that owner's rows.
 // Ids the index does not hold count as empty documents.
@@ -384,13 +495,22 @@ func (k *kwIndex) rank(query []string, ids []string) []kwMatch {
 		idf[t] = math.Log(1 + (float64(N)-d+0.5)/(d+0.5))
 	}
 
-	need := keywordRequired(len(uniq))
+	// The gate counts units, not flat tokens. Scoring above stays on the deduplicated
+	// terms; only the pass/fail question is asked of the units, and it is asked of the
+	// raw token order so that a repeated bigram cannot cut its own phrase in two. A
+	// Chinese query of k characters makes k-1 bigram tokens, and counting those demanded
+	// the clause almost verbatim: a note that stated the same fact in other words lost the
+	// match even though it was about exactly that. Counting the phrases the user typed
+	// restores the pre-bigram gate, which is the one the hit budget was calibrated against.
+	units := groupQueryUnits(query)
+	need := keywordRequired(len(units))
 	var out []kwMatch
-	for id, m := range matched {
-		if m < need {
+	for id := range matched {
+		doc := k.docs[id]
+		hits := unitsHit(units, doc.tf)
+		if hits < need {
 			continue
 		}
-		doc := k.docs[id]
 		dl := float64(doc.n)
 		score := 0.0
 		for _, t := range uniq {
@@ -400,7 +520,7 @@ func (k *kwIndex) rank(query []string, ids []string) []kwMatch {
 			}
 			score += idf[t] * (tf * (k1 + 1)) / (tf + k1*(1-b+b*dl/avgdl))
 		}
-		out = append(out, kwMatch{ID: id, Score: score, Matched: m})
+		out = append(out, kwMatch{ID: id, Score: score, Matched: hits})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Score != out[j].Score {

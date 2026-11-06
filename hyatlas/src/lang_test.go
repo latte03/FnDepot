@@ -66,11 +66,13 @@ func TestNoSystemPromptEscapesTheList(t *testing.T) {
 		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
-		data, err := os.ReadFile(name)
+		src, err := os.ReadFile(name)
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
 		}
-		if n := strings.Count(string(data), `{"role": "system"`); n > 0 {
+		// Both spacings count: {"role": "system"} and the compact {"role":"system"}.
+		data := string(src)
+		if n := strings.Count(data, `{"role": "system"`) + strings.Count(data, `{"role":"system"`); n > 0 {
 			got += n
 			seen = append(seen, fmt.Sprintf("%s(%d)", name, n))
 		}
