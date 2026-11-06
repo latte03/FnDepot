@@ -49,8 +49,12 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-OUT="${1:-/vol2/1000/download/hyatlas-5.0.0-4-x86.fpk}"
-VER="5.0.0-4"   # 本包版本，manifest 校验与身份闸提示共用（上游版本 + fork 修订号）
+OUT="${1:-/vol1/1000/download/hyatlas-5.0.0-5-x86.fpk}"
+# 5.0.0-5：/vol2/1000/download 已被用户在文件管理器里删掉（5.0.0-4 被搬到 /vol1/1000/download、
+# 两个 superseded 进了 /vol2 回收站），旧默认值会让脚本「不传参数就 die」且没有任何提示。
+# 目标目录不在就建出来——用户随时可能重建/删掉 download 目录，这不是异常输入。
+mkdir -p "$(dirname "$OUT")"
+VER="5.0.0-5"   # 本包版本，manifest 校验与身份闸提示共用（上游版本 + fork 修订号）
 REF_FPK="${REF_FPK:-}"   # 本机无兜底 fpk（作者机器的 /vol2/1000/workspace/hy450-sync/ 已不存在）→ 默认留空，模型走 MODEL_SRC；需要时显式传 REF_FPK=...
 
 # 4.9.0-1 是**上游同步版**（v4.7.3→v4.9.0，Go 源码与前端 embed 均有改动），本轮**重编**，
@@ -59,7 +63,7 @@ REF_FPK="${REF_FPK:-}"   # 本机无兜底 fpk（作者机器的 /vol2/1000/work
 # 两份不同挂载路径的产物因 .git 有无不一致（4.9.1-1 出货件 buildinfo 无 vcs 键，与本闸对齐）。
 # SHA_BIN 取自出包前置门禁的权威值：/vol2 与 /tmp 两条不同挂载路径各编一次，
 # 逐字节一致（go1.27.1-bookworm，CGO_ENABLED=1，-trimpath，-buildvcs=false，GOAMD64=v1）。
-SHA_BIN="05bc4a01623ea32004e5c3f649f62d1d5bb9f524bf8953a60d6b1df7fa01de33"   # 实测：冻结树 77b7125 + golang:1.27.1-bookworm；25,143,528B（= 5.0.0-3 的 25,143,592B − 64B，检索标点修复）
+SHA_BIN="eb269aad6cabb912f889fdbe53ef481280be6ee6e80c6ffb83b4b01b17aae0f5"   # 实测：冻结树 529e313 + golang:1.27.1-bookworm；25,153,768B（= 5.0.0-4 的 25,143,528B + 10,240B：8 处提示词语言规则 + 中文概念词 + 中文 bigram 关键词 + 使用反馈中文二元组）
 REUSE_BIN="${REUSE_BIN:-0}"   # 1 = 本轮为打包层修订，允许复用 bin/ 现有二进制（非重编）；重编发布时置 0
 SHA_ONNX="8a3f371a7e535e25d3d5a0ff0c0501a605ef0b62577800d2bf4b1fc76d6cbcf1"
 SHA_ORT="99458e9d185dfa1a9b5f6510790ede3bedc25dea378adb904ce292b517eeaecf"
