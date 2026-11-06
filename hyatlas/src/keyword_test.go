@@ -4,6 +4,7 @@ import (
 	"math"
 	"reflect"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/tuancookiez-hub/hyatlas-v4/memory"
 )
@@ -14,6 +15,46 @@ func TestKeywordTokens(t *testing.T) {
 	want := []string{"hyatla", "sync", "extract", "port", "19528", "rsi", "reg"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("keywordTokens: want %v, got %v", want, got)
+	}
+}
+
+// TestKeywordTokensChineseBigrams checks that a Chinese run is indexed as overlapping
+// character bigrams. As one token per clause, a Chinese memory could only match a query
+// that repeated the clause character for character.
+func TestKeywordTokensChineseBigrams(t *testing.T) {
+	got := keywordTokens("混元记忆的快照周期")
+	want := []string{"混元", "元记", "记忆", "忆的", "的快", "快照", "照周", "周期"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("keywordTokens: want %v, got %v", want, got)
+	}
+}
+
+// TestKeywordTokensMixedScript checks a run that holds both scripts: the Latin words and
+// the Chinese bigrams of its parts, and no whole-clause token.
+func TestKeywordTokensMixedScript(t *testing.T) {
+	got := keywordTokens("Docker容器没加pid=host会有进程回收问题")
+	have := make(map[string]bool, len(got))
+	for _, tok := range got {
+		have[tok] = true
+	}
+	for _, want := range []string{"docker", "容器", "器没", "回收", "收问", "问题", "host"} {
+		if !have[want] {
+			t.Errorf("keywordTokens is missing %q; got %v", want, got)
+		}
+	}
+	for _, tok := range got {
+		if isCJKSegment(tok) && utf8.RuneCountInString(tok) >= 3 {
+			t.Errorf("keywordTokens emitted a whole-clause token %q; got %v", tok, got)
+		}
+	}
+}
+
+// TestKeywordTokensSingleHanIsDropped checks that one character alone indexes nothing,
+// the same gate as a one-character Latin run: with no neighbour it would match every
+// memory holding that character.
+func TestKeywordTokensSingleHanIsDropped(t *testing.T) {
+	if got := keywordTokens("看 改 好"); len(got) != 0 {
+		t.Fatalf("want no tokens, got %v", got)
 	}
 }
 

@@ -30,22 +30,87 @@ var keywordStopwords = map[string]bool{
 	"make": true, "made": true, "like": true, "one": true, "two": true,
 }
 
-// keywordTokens splits text into lower-case search terms: runs of letters or digits.
-// Everything else separates terms, so HYATLAS_SYNC_EXTRACT is hyatlas, sync, extract.
-// Terms shorter than two characters and stopwords are dropped, and each kept term is
-// passed through stemTerm. Order is kept and repeats stay, because document term counts
-// need them. Every caller tokenises with this function, so the stemming is symmetric:
-// a query for "libraries" matches a memory that says "library".
+// keywordTokens splits text into lower-case search terms. Runs of letters or digits are
+// the units and everything else separates them, so HYATLAS_SYNC_EXTRACT is hyatlas,
+// sync, extract. Every caller tokenises with this function, so a query and a document
+// are cut the same way and the stemming stays symmetric: a query for "libraries" matches
+// a memory that says "library".
+//
+// A Latin run keeps the original rules: shorter than two characters is dropped,
+// stopwords are dropped, and the rest goes through stemTerm. A Chinese run is cut into
+// overlapping character bigrams instead (see cjkBigrams). Chinese puts no spaces between
+// words, so a whole clause arrives as one run, and as one token it could only match a
+// query that repeated that clause character for character — the keyword channel was
+// effectively dead for Chinese. Order is kept and repeats stay, because document term
+// counts need them.
 func keywordTokens(text string) []string {
 	fields := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
 	})
 	out := make([]string, 0, len(fields))
-	for _, t := range fields {
-		if utf8.RuneCountInString(t) < 2 || keywordStopwords[t] {
+	for _, run := range fields {
+		for _, seg := range scriptSegments(run) {
+			if isCJKSegment(seg) {
+				out = append(out, cjkBigrams(seg)...)
+				continue
+			}
+			if utf8.RuneCountInString(seg) < 2 || keywordStopwords[seg] {
+				continue
+			}
+			out = append(out, stemTerm(seg))
+		}
+	}
+	return out
+}
+
+// scriptSegments cuts one letter-or-digit run into maximal stretches of Han and of
+// everything else, so a run that mixes scripts is indexed as Latin words and as Chinese
+// bigrams at once: "docker容器" gives docker and 容器. A single-script run comes back as
+// itself, which keeps the Latin path identical to the rules above.
+func scriptSegments(run string) []string {
+	segs := make([]string, 0, 4)
+	start := 0
+	han := false
+	first := true
+	for i, r := range run {
+		h := unicode.Is(unicode.Han, r)
+		if first {
+			han, first = h, false
 			continue
 		}
-		out = append(out, stemTerm(t))
+		if h != han {
+			segs = append(segs, run[start:i])
+			start, han = i, h
+		}
+	}
+	if start < len(run) {
+		segs = append(segs, run[start:])
+	}
+	return segs
+}
+
+// isCJKSegment reports whether a segment from scriptSegments is one of the Han ones. The
+// segments are homogeneous, so its first rune decides.
+func isCJKSegment(seg string) bool {
+	r, _ := utf8.DecodeRuneInString(seg)
+	return unicode.Is(unicode.Han, r)
+}
+
+// cjkBigrams returns every adjacent pair of characters in a Chinese segment. A bigram is
+// the standard dictionary-free unit for indexing text with no word separators: it needs
+// no word list, and a query meets a stored sentence wherever two characters coincide
+// ("快照周期怎么改" meets a memory saying 快照周期). A one-character segment has no pair
+// and yields nothing, the same gate as a one-character Latin run. Bigrams are not
+// stemmed: stemTerm is written for ASCII word endings and would only be noise on a pair
+// of characters.
+func cjkBigrams(seg string) []string {
+	runes := []rune(seg)
+	if len(runes) < 2 {
+		return nil
+	}
+	out := make([]string, 0, len(runes)-1)
+	for i := 0; i+1 < len(runes); i++ {
+		out = append(out, string(runes[i:i+2]))
 	}
 	return out
 }
